@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0f172a"/>
+  <rect x="72" y="72" width="1056" height="486" rx="28" fill="#111827" stroke="#38bdf8" stroke-width="3"/>
+  <text x="120" y="240" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="700">Vamsi Krishna Sethu</text>
+  <text x="120" y="326" fill="#bae6fd" font-family="Inter, Arial, sans-serif" font-size="36">DevOps / Site Reliability Engineer</text>
+  <text x="120" y="400" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="30">Kubernetes - Cloud Infrastructure - GitOps - Observability</text>
+  <text x="120" y="488" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="28">vamsisethu.com</text>
+</svg>
