@@ -1,0 +1,118 @@
+---
+title: "One Trust Anchor Per Cluster: Hardening Non-AWS Spoke Identity with IAM Roles Anywhere"
+description: "How we gave RKE2/bare-metal spokes their own AWS identity without a shared trust anchor — one self-signed CA and anchor per cluster, one profile per role — so a stolen key is confined to its own cluster and a compromised consumer to its own role."
+date: "Sep 20 2026"
+---
+
+import Mermaid from '@components/Mermaid.astro';
+
+We run a fleet of Kubernetes clusters, some on AWS EKS and some non-AWS (RKE2 on bare metal). The AWS ones are easy: EKS Pod Identity gives every workload an AWS identity with no long-lived secrets. The non-AWS ones have no such luxury — they have no AWS identity at all — so they authenticate to AWS with a **certificate**, via [IAM Roles Anywhere](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html).
+
+Roles Anywhere is great, but it forces a design question that's easy to get wrong: **how many trust anchors, profiles, and roles do you create, and how do you scope them, so that a fully compromised spoke can only ever be *itself* — and can only do what that *one* consumer needs?**
+
+This post is the design we landed on, why the obvious "shared anchor" approach is a footgun, and how we made the whole thing free of ACM Private CA.
+
+## A 60-second primer on Roles Anywhere
+
+Roles Anywhere lets a workload outside AWS assume an IAM role by presenting an X.509 certificate. Three objects matter:
+
+- **Trust anchor** — a CA (or CA bundle) that AWS trusts. Any cert chaining to it is a candidate identity.
+- **Profile** — which IAM role(s) a session may request, plus how cert fields map to session attributes.
+- **Role** — the actual IAM role, with a trust policy (who can assume it) and a permission policy (what it can do).
+
+A workload presents a leaf cert signed by the anchor's CA, `CreateSession` against a profile, and gets temporary AWS credentials for a role.
+
+## The trap: one shared trust anchor for the whole fleet
+
+The tempting first design is one trust anchor for all non-AWS spokes, and a role scoped by the certificate's Common Name (CN):
+
+<Mermaid chart={`graph TB
+    subgraph Anchor["Shared trust anchor (fleet-wide)"]
+        CA["one CA trusted by AWS"]
+    end
+    A["Spoke A leaf (CN=.../spoke-a)"]
+    B["Spoke B leaf (CN=.../spoke-b)"]
+    A -->|chains to| CA
+    B -->|chains to| CA
+    CA --> ROLE["reader role(scoped by CN)"]
+`} />
+
+The problem is what a compromised spoke can do. If spoke A holds a CA key that chains to the shared anchor, **spoke A can mint a validly-chained certificate with spoke B's CN** and read spoke B's secrets. The CN "scoping" is enforced at `AssumeRole` — but a spoke that can sign for the anchor can forge any CN under it. The shared anchor is the whole fleet's blast radius packed into one object.
+
+## The model: one anchor per cluster, one profile per role
+
+Two independent boundaries, each doing exactly one job:
+
+<Mermaid chart={`graph TB
+    subgraph C["Non-AWS cluster C"]
+        CAC["self-signed CA_C(minted in-cluster)"]
+    end
+    TA["Trust anchor TA_C(bundle = CA_C only)"]
+    PESO["profile P_eso"]
+    PECR["profile P_ecr"]
+    RESO["role R_eso(secrets read, this cluster)"]
+    RECR["role R_ecr(image pull)"]
+
+    CAC -->|pinned as its own anchor| TA
+    TA --> PESO --> RESO
+    TA --> PECR --> RECR
+`} />
+
+1. **One trust anchor per cluster**, whose bundle is pinned to *that cluster's own CA*. This is the **cross-cluster** boundary. A stolen CA key from cluster A produces certs that chain only to A's CA → only A's anchor → only A's roles. It cannot reach cluster B, because B's anchor doesn't trust A's CA. The shared anchor's forgery path simply doesn't exist.
+
+2. **One profile per role** (secrets read, image pull, and whatever gets added later). This is the **intra-cluster** boundary. A compromised consumer — say the secrets reader — can only `CreateSession` for *its own* role. It can't request the image-pull role, and a role a teammate adds next month isn't automatically reachable by every existing consumer.
+
+3. **The role trust policy still pins the CN** as a server-side belt-and-suspenders, and the permission policy scopes to that cluster's resources.
+
+If you remember one line: **the anchor isolates clusters from each other; the per-role profile isolates roles from each other within a cluster.**
+
+### Why one profile per role, not one shared profile
+
+The anchor + CN condition isolate *clusters*. They do nothing to stop a same-cluster consumer from assuming a role it shouldn't. That's the profile's job:
+
+- **Blast radius** — a shared profile listing `[eso, ecr, …]` lets a compromised secrets pod request the image-pull role, and vice versa. Per-role profiles box each consumer to its own role.
+- **No privilege creep** — with a shared profile, every new role a teammate adds is instantly reachable by every existing consumer. Per-role profiles keep each addition scoped to only its consumer, no matter how the role list grows.
+- **Independent lifecycle & audit** — disable or rotate one purpose without touching the others, and CloudTrail's `CreateSession` records which profile was used.
+
+The only thing a shared profile buys is fewer objects, and Roles Anywhere profile quotas are generous. It's not a real trade.
+
+## Going PCA-free: the CA is self-signed
+
+An earlier iteration of this design minted each cluster's CA from a shared account root via ACM Private CA. We dropped ACM-PCA entirely. Each cluster's CA is now a **self-signed root**, generated in-cluster during onboarding:
+
+```bash
+openssl req -x509 -newkey rsa:4096 -nodes \
+  -keyout ca.key -out ca.crt -days 3650 \
+  -subj "/CN=roles-anywhere-ca-<cluster>" \
+  -addext "basicConstraints=critical,CA:TRUE,pathlen:0"
+```
+
+The trust anchor pins that self-signed cert directly. Why this is strictly better here:
+
+- The anchor already pins the *cluster's own* CA — that's the entire isolation boundary. Chaining it up to a shared account root buys **nothing** for isolation.
+- A shared root reintroduces exactly the problem the per-cluster anchor exists to avoid, and adds a `pathlen` path-validation headache (a leaf under an intermediate under a `pathlen:0` root fails validation).
+- Self-signed removes a whole dependency — ACM-PCA, its issuer, its per-CA cost — with **no loss of security**. A stolen spoke CA key still only mints certs that chain to its own anchor.
+
+## Where each piece is created
+
+The CA is minted *in the cluster* at onboarding, so Terraform can't read it at plan time. So creation is split:
+
+- **The onboarding workflow** owns the one thing only it can: it generates the self-signed CA in-cluster (create-if-absent) and injects it into that cluster's trust anchor. The inject is idempotent — it fingerprint-compares against what the anchor already holds and is a no-op on re-run.
+- **Terraform** owns all the reviewable IAM: the per-cluster roles and per-role profiles (via a `for_each` over the account's non-AWS clusters), each role's trust policy (anchor + CN pin) and permission policy. It references the anchor by a deterministic name.
+
+This keeps the security-sensitive IAM in reviewed, planned Terraform, while the workflow handles the in-cluster cert that Terraform structurally can't.
+
+## The one fail-closed gotcha
+
+Each profile maps the cert's `x509Subject` CN to a session tag (`PrincipalTag`). If that attribute mapping is ever missing, both the CN trust condition and the `.../<CN>/*` permission scope evaluate against an empty tag and **deny**. That's safe (no access), but it's an outage that looks like a permissions bug. Verify the mapping whenever the Roles Anywhere wiring changes.
+
+## What this is not for
+
+AWS EKS spokes never touch any of this. They use EKS Pod Identity — no CA, no CN, no anchor — and are structurally immune to CN forgery. This whole design is only for genuinely non-AWS (RKE2 / bare-metal) clusters that have no native AWS identity.
+
+## Takeaways
+
+- **Scope the blast radius to the thing you can lose.** A stolen key should compromise exactly one cluster; a compromised pod should reach exactly one role. Two independent boundaries (anchor per cluster, profile per role) get you both.
+- **CN conditions are a belt, not the trousers.** They're enforced server-side and worth having, but they don't stop a holder of the signing key from forging CNs. The anchor boundary is what actually contains a stolen key.
+- **A shared root buys nothing when the anchor already pins the leaf's own CA.** Self-signed per-cluster CAs are simpler, cheaper, and just as safe — and they sidestep `pathlen` validation entirely.
+- **Split creation by what each tool can actually see.** Reviewable IAM in Terraform; the in-cluster cert in the workflow, made idempotent so re-runs are no-ops.

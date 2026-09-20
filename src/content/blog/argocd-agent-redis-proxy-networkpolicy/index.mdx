@@ -1,0 +1,143 @@
+---
+title: "When Argo CD Login Loops Forever: The argocd-agent Redis Proxy NetworkPolicy Trap"
+description: "Debugging an Argo CD login loop on a hub-and-spoke argocd-agent setup — from an OIDC callback loop and i/o timeouts down to a cross-chart NetworkPolicy gap that only bit us where enforcement was actually on."
+date: "Sep 20 2026"
+---
+
+import Mermaid from '@components/Mermaid.astro';
+
+One of our staging Argo CD hubs stopped letting anyone log in. The Cognito login succeeded, then the browser bounced straight back to the login page — over and over. The same setup on our dev hub, provisioned by the exact same workflow, was completely fine.
+
+This is the story of chasing that down. It ends somewhere I didn't expect: a NetworkPolicy owned by one Helm chart that needed a rule about a component from a *different* chart, and a subtle environment difference that kept the bug hidden on one cluster and lethal on another.
+
+## The symptom
+
+The Argo CD server logs were a wall of the same few lines, looping every minute:
+
+```
+level=info  msg="Callback: /auth/callback?code=...&state=..."   (repeated, same code)
+level=warning msg="Failed to verify session token: ... oidc: token is expired"
+level=error msg="cannot cache encrypted accessToken: i/o timeout"
+level=error msg="Failed to get token from cache: failed to get encrypted value from cache: i/o timeout"
+level=warning msg="Failed to resync revoked tokens. retrying again in 1 minute: i/o timeout"
+```
+
+Two things jumped out:
+
+1. **OIDC itself was working** — the callback fired with a valid code, and the decoded token showed the right user, email, and groups. Login wasn't the problem.
+2. Every failing line was an **`i/o timeout` on a cache operation**. Argo CD's cache is Redis. So the server could authenticate you, but couldn't *persist your session* — so it never established one, and the browser looped back through `/auth/callback` forever, eventually falling back to a days-old expired token.
+
+`i/o timeout` (not "connection refused") is a useful detail on its own: refused comes back fast and means "nothing is listening there." A timeout means packets are going into a hole — **something is dropping them**.
+
+## The setup: argocd-agent, hub and spoke
+
+The important context is that this isn't a vanilla Argo CD. We run [argocd-agent](https://github.com/argoproj-labs/argocd-agent): a single Argo CD control plane (the **principal**) that manages workloads on many remote clusters (the **agents**), so operators get one pane of glass across the fleet.
+
+A key piece of that architecture is the **Redis proxy**. Instead of talking to Redis directly, the Argo CD server on the principal is pointed at the agent's Redis proxy:
+
+```yaml
+# argocd-cmd-params-cm
+data:
+  redis.server: "argocd-agent-redis-proxy:6379"
+```
+
+<Mermaid chart={`graph LR
+    SRV["argocd-server"]
+    PROXY["argocd-agent-redis-proxy(principal pod)"]
+    REDIS["argocd-redis(principal's own Redis)"]
+    AGENT["remote agent(other cluster)"]
+
+    SRV -->|redis.server points here| PROXY
+    PROXY -->|agent-scoped keys| AGENT
+    PROXY -->|everything else| REDIS
+`} />
+
+The proxy inspects each Redis key. Keys scoped to a remote agent (like an application's resource tree on a spoke) are forwarded over the gRPC tunnel to that agent. Everything else — session tokens, the revoked-token list, cluster info — is forwarded to the **principal's own Redis**.
+
+So the real connection chain behind that "server → Redis" cache call is actually:
+
+```
+argocd-server → argocd-agent-redis-proxy → argocd-redis
+```
+
+## Following the timeout
+
+Redis itself was healthy — the pod was `Running`, the Service had an endpoint, and `redis-cli ping` from inside the Redis pod returned `PONG` (well, `NOAUTH Authentication required`, which still proves it's listening and answering).
+
+The interesting log line wasn't in the Argo CD server at all — it was in the **principal**:
+
+```
+module=redisProxy  function=redisFxn
+  error="dial tcp 172.20.21.85:6379: i/o timeout"
+  redisAddress="argocd-redis:6379"
+"unable to connect to principal redis"
+```
+
+`172.20.21.85` is the ClusterIP of `argocd-redis`. So the failing hop wasn't `server → proxy`. It was **`proxy (principal) → argocd-redis`**. The principal — which does the actual Redis connection on the server's behalf — could not reach Redis, and had been failing that dial continuously.
+
+## The root cause: a NetworkPolicy that never heard of the principal
+
+Argo CD ships a NetworkPolicy for its Redis. Its ingress allow-list is:
+
+```yaml
+# argocd-redis-network-policy (from the Argo CD install)
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-redis
+  ingress:
+  - from:
+    - podSelector: { matchLabels: { app.kubernetes.io/name: argocd-server } }
+    - podSelector: { matchLabels: { app.kubernetes.io/name: argocd-repo-server } }
+    - podSelector: { matchLabels: { app.kubernetes.io/name: argocd-application-controller } }
+    ports:
+    - port: 6379
+```
+
+Server, repo-server, application-controller. That's the classic Argo CD trio — and it's correct for a *vanilla* install, where those three are the only things that talk to Redis.
+
+But with argocd-agent's Redis proxy in place, the component that actually connects to Redis is the **`argocd-agent-principal`** pod. It's not in the list. So its packets to `argocd-redis:6379` were dropped — `i/o timeout` — and everything cascaded from there.
+
+The reason this is easy to miss: it's a **cross-chart** gap. The `argocd-redis` NetworkPolicy belongs to the **Argo CD** install and has no idea argocd-agent exists. The principal belongs to the **argocd-agent** install and can't reach into Argo CD's policy. Neither side's defaults account for the other.
+
+## Why dev worked and staging didn't
+
+Same workflow, same manifests, same chart versions, same `redis.server` value, same (incomplete) NetworkPolicy on both hubs. Yet dev was fine and staging was broken. That contradiction is what made this fun.
+
+The difference was one flag on the CNI. Both clusters use the AWS VPC CNI, which does **not** enforce NetworkPolicy unless its network-policy agent is turned on:
+
+```
+# dev hub — aws-eks-nodeagent args
+--enable-network-policy=false      # NetworkPolicy NOT enforced
+
+# staging hub — aws-node env
+NETWORK_POLICY_ENFORCING_MODE=standard   # NetworkPolicy IS enforced
+```
+
+So the NetworkPolicy bug was present on **both** hubs the whole time. On dev, enforcement was off, so the incomplete policy was inert and the principal reached Redis freely. On staging, enforcement was on, so the same policy actually dropped the traffic.
+
+That's the worst kind of latent bug: it lives quietly in your manifests and only detonates when an unrelated setting changes. Turn on NetworkPolicy enforcement on the "working" cluster and it breaks the instant you do.
+
+## The fix
+
+Allow the principal in Argo CD's Redis NetworkPolicy ingress:
+
+```yaml
+- op: add
+  path: /spec/ingress/0/from/-
+  value:
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: argocd-agent-principal
+```
+
+The satisfying part: this is *exactly* the patch argocd-agent's upstream kustomize overlay (`install/kubernetes/argo-cd/principal`) already applies. When I rendered that overlay, the resulting `argocd-redis-network-policy` did include the principal. So the canonical kustomize install path is correct — the gap only shows up if you install via a path that doesn't apply that patch (for example, the principal Helm chart, which can't modify a policy owned by the Argo CD chart).
+
+## Takeaways
+
+- **`i/o timeout` vs `connection refused` is a real clue.** Timeout = something is dropping packets (NetworkPolicy, firewall, routing). Refused = wrong address or nothing listening. They point you in different directions.
+- **Follow the actual connection chain, not the log's framing.** The error read like "server can't reach Redis," but the server never touches Redis directly here — a proxy hop in between was the real failure point, and its log had the truth.
+- **Cross-chart assumptions are a blind spot.** When one component (argocd-agent) makes another component (Argo CD Redis) a new client, the security policy on the target often doesn't know. Neither chart's defaults are wrong in isolation; the gap is in the seam.
+- **A policy that isn't enforced is not the same as a policy that is correct.** Enforcement being off on one environment hid a real manifest bug. "It works on dev" meant "dev doesn't enforce this," not "the manifest is right."
+
+If you run argocd-agent with the Redis proxy on a cluster that enforces NetworkPolicy, make sure your Argo CD `argocd-redis` policy allows `argocd-agent-principal` on port 6379. It'll save you a very confusing login loop.

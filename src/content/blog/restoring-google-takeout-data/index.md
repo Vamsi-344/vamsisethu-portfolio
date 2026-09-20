@@ -95,7 +95,7 @@ unzip -q "takeout-001.zip" -d "photos_extracted"
 
 This produces:
 - `ALL_PHOTOS/2021/04/photo.jpg` — chronological organization
-- `Batukamma/2020/10/photo.jpg` — album folders with symlinks to ALL_PHOTOS
+- `My-Album/2020/10/photo.jpg` — album folders with symlinks to ALL_PHOTOS
 
 **Key flags:**
 - `--albums shortcut` — creates album folders with symlinks (saves space)
@@ -152,8 +152,8 @@ This requires a Google Cloud project with Photos Library API enabled.
     }
     {
       // Named album
-      SourceFolder: "/path/to/photos_output/Batukamma"
-      Album: "name:Batukamma"
+      SourceFolder: "/path/to/photos_output/My-Album"
+      Album: "name:My-Album"
       DeleteAfterUpload: false
       IncludePatterns: ["**/*.jpg", "**/*.jpeg", "**/*.png", "**/*.gif",
                         "**/*.mp4", "**/*.mkv", "**/*.mov", "**/*.heic"]

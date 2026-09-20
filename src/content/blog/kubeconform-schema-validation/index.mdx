@@ -1,0 +1,224 @@
+---
+title: "Kubeconform: Catching Invalid Kubernetes Manifests Before They Hit Your Cluster"
+description: "How we added schema validation to our Helm chart CI pipeline using kubeconform — solving the CRD schema problem, extracting schemas from live clusters, and surfacing results directly in PR comments."
+date: "Aug 20 2026"
+---
+
+import Mermaid from '@components/Mermaid.astro';
+
+We ship Helm charts to production via GitOps. Our CI pipeline had `helm lint` and `helm template` — both passed happily on manifests that would then fail at apply time on the cluster. The gap: **nobody was validating whether the rendered YAML was actually valid Kubernetes**.
+
+## The Problem
+
+Consider this rendered Helm output:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: "3"          # string, must be integer
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    spec:
+      containers:
+        - name: app
+          image: nginx
+          resources:
+            limts:               # typo: "limts" not "limits"
+              memory: "128Mi"
+```
+
+- `yamllint` → ✅ (valid YAML syntax)
+- `helm lint` → ✅ (valid chart structure)
+- `helm template` → ✅ (renders without error)
+- `kubectl apply` → ❌ **fails in production**
+
+There's a validation gap between "renders successfully" and "Kubernetes will accept this." That gap is where kubeconform lives.
+
+## What is Kubeconform?
+
+[Kubeconform](https://github.com/yannh/kubeconform) validates Kubernetes manifests against the **official OpenAPI schemas** published for each Kubernetes version. It checks types, required fields, and (with `-strict` mode) rejects unknown fields — catching typos that would otherwise silently be ignored or rejected by the API server.
+
+```bash
+helm template my-chart | kubeconform -strict -kubernetes-version 1.35.0
+```
+
+It's a single Go binary (~10MB), runs in milliseconds, and needs zero cluster access.
+
+## The CRD Schema Problem
+
+Core Kubernetes resources (Deployments, Services, ConfigMaps) have published schemas for every K8s version. But **Custom Resource Definitions** (CRDs) don't — they're defined per-cluster.
+
+Our charts use CRDs from:
+- Rancher (`provisioning.cattle.io/v1/Cluster`)
+- External Secrets (`external-secrets.io/v1/ExternalSecret`)
+- Cert-manager (`cert-manager.io/v1/Certificate`)
+
+The community maintains [datreeio/CRDs-catalog](https://github.com/datreeio/CRDs-catalog) — a collection of CRD schemas scraped from various projects. We tried using it:
+
+```bash
+kubeconform \
+  -schema-location default \
+  -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+```
+
+It worked for some CRDs but **failed for Rancher**. The datreeio schema was outdated — our cluster's CRD had a `retention` field in `etcd.s3` that the catalog didn't include. Result: false-positive validation failures.
+
+## The Solution: Extract Schemas From Your Cluster
+
+If you control the cluster, you have the **canonical source of truth** — the live CRD definition. We wrote a script to extract it:
+
+```bash
+#!/usr/bin/env bash
+# scripts/update-crd-schemas.sh
+
+CRD_NAME="clusters.provisioning.cattle.io"
+GROUP=$(kubectl get crd "$CRD_NAME" -o jsonpath='{.spec.group}')
+KIND=$(kubectl get crd "$CRD_NAME" -o jsonpath='{.spec.names.kind}')
+
+kubectl get crd "$CRD_NAME" -o json | python3 -c '
+import json, os, sys
+
+crd = json.load(sys.stdin)
+for v in crd["spec"]["versions"]:
+    if v["name"] == "v1":
+        schema = v["schema"]["openAPIV3Schema"]
+        output = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": schema.get("properties", {}),
+        }
+        print(json.dumps(output, indent=2))
+' > .schemas/provisioning.cattle.io/Cluster_v1.json
+```
+
+The schema is stored in the repo at `.schemas/` and referenced by kubeconform:
+
+```bash
+kubeconform -strict \
+  -kubernetes-version 1.35.0 \
+  -ignore-missing-schemas \
+  -schema-location "${REPO_ROOT}/.schemas/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json" \
+  -schema-location default
+```
+
+<Mermaid chart={`graph LR
+    HT[helm template] -->|rendered YAML| KC[kubeconform]
+    KC -->|lookup| LS[".schemas/ (local CRDs)"]
+    KC -->|lookup| DS["default (K8s built-in)"]
+    KC -->|result| PR["✅ Valid / ❌ Invalid"]
+`} />
+
+**Lookup order matters** — local schemas are checked first, built-in K8s schemas second. CRDs not in `.schemas/` are skipped gracefully (`-ignore-missing-schemas`).
+
+## CI Integration
+
+We added a `Kubeconform` job to our chart validation workflow that:
+
+1. Installs kubeconform (single binary, ~10MB)
+2. Renders each chart with `helm template`
+3. Pipes output through kubeconform
+4. Collects results into a markdown table
+5. Posts a **sticky PR comment** that updates in place on each push
+
+### The Sticky Comment
+
+Every PR gets a summary table showing validation status per chart:
+
+| Chart | Status | Valid | Invalid | Skipped |
+|-------|--------|-------|---------|---------|
+| `cluster-lifecycle` | ✅ Pass | 1 | 0 | 0 |
+| `cluster-readiness` | ✅ Pass | 13 | 0 | 1 |
+| `envoy-ai-gateway` | ✅ Pass | 27 | 0 | 8 |
+| `kserve-runtime-configs` | ✅ Pass | 0 | 0 | 8 |
+
+When something fails, error details appear in expandable blocks — no need to click through to CI logs:
+
+> **Cluster ci-test-cluster**: at `/spec/rkeConfig/etcd/s3`: additional properties 'retention' not allowed
+
+### The Workflow Job
+
+```yaml
+schema-validate:
+  name: Kubeconform
+  runs-on: arc-runner-org
+  steps:
+    - uses: actions/checkout@v4
+    - uses: azure/setup-helm@v4
+      with:
+        version: 'v3.17.0'
+
+    - name: Install kubeconform
+      run: |
+        curl -fsSL "https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz" \
+          | tar xzf - -C /tmp
+        sudo mv /tmp/kubeconform /usr/local/bin/kubeconform
+
+    - name: Validate rendered manifests
+      run: |
+        for chart in charts/*/; do
+          helm template test "$chart" -f "$chart/ci/test-values.yaml" | \
+            kubeconform -strict -summary \
+              -kubernetes-version 1.35.0 \
+              -ignore-missing-schemas \
+              -schema-location ".schemas/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json" \
+              -schema-location default
+        done
+```
+
+## Lessons Learned
+
+### 1. Don't trust third-party schema catalogs blindly
+
+datreeio/CRDs-catalog is useful but can be stale. If your CRD is generated at runtime (like Rancher's), the catalog may never have the latest version. Extract from your own cluster.
+
+### 2. `-strict` mode is worth the noise
+
+Without `-strict`, kubeconform only validates types and required fields. A typo like `limts` instead of `limits` passes silently — the API server just ignores the unknown field. With `-strict`, it's caught immediately.
+
+### 3. Schema location order matters
+
+kubeconform checks locations in order and stops at the first match. Put your local schemas first, built-in K8s schemas second, and any remote catalogs last (or don't use them at all).
+
+### 4. `helm template` passing doesn't mean it's valid K8s
+
+Helm's template engine is a text processor — it doesn't know or care about Kubernetes schemas. A chart can render successfully and produce completely invalid manifests. Kubeconform bridges that gap.
+
+### 5. Make results visible in the PR
+
+A failed CI check that requires clicking through to logs gets ignored. A sticky comment with a table showing exactly what failed gets fixed. We use `actions/github-script` to edit a single comment in place on every push.
+
+## When to Run the Schema Extraction
+
+- After upgrading Rancher, cert-manager, or any CRD-providing operator
+- When adding a new chart that uses a CRD you haven't extracted yet
+- If kubeconform reports false-positive failures (stale schema)
+
+```bash
+# Extract all configured CRDs
+./scripts/update-crd-schemas.sh
+
+# Extract a specific one
+./scripts/update-crd-schemas.sh certificates.cert-manager.io
+```
+
+## What Kubeconform Doesn't Catch
+
+It validates against the **static OpenAPI schema** only. It won't catch:
+
+- Webhook validation (admission controllers that reject resources at apply time)
+- Cross-resource references (e.g., a Secret referenced by a Deployment that doesn't exist)
+- Runtime constraints (resource quotas, pod security policies)
+
+For those, you'd need `kubectl apply --dry-run=server` against a real cluster. Kubeconform is the fast, offline first line of defense.
+
+## Cost
+
+- ~5 seconds per chart in CI
+- Zero cluster access required
+- Single binary, no dependencies
+- No ongoing maintenance beyond re-extracting schemas after CRD upgrades

@@ -1,0 +1,191 @@
+---
+interface Props {
+  chart: string;
+}
+
+const { chart } = Astro.props;
+---
+
+<div class="mermaid-container relative my-6 overflow-hidden rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-stone-800 p-4">
+  <div class="mermaid-controls flex gap-2 justify-end mb-2">
+    <button class="mermaid-zoom-in p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors" aria-label="Zoom in" title="Zoom in">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        <line x1="11" y1="8" x2="11" y2="14"></line>
+        <line x1="8" y1="11" x2="14" y2="11"></line>
+      </svg>
+    </button>
+    <button class="mermaid-zoom-out p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors" aria-label="Zoom out" title="Zoom out">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        <line x1="8" y1="11" x2="14" y2="11"></line>
+      </svg>
+    </button>
+    <button class="mermaid-zoom-reset p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-xs font-mono" aria-label="Reset zoom" title="Reset zoom">
+      1:1
+    </button>
+    <button class="mermaid-fullscreen p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors" aria-label="Fullscreen" title="Fullscreen">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <polyline points="9 21 3 21 3 15"></polyline>
+        <line x1="21" y1="3" x2="14" y2="10"></line>
+        <line x1="3" y1="21" x2="10" y2="14"></line>
+      </svg>
+    </button>
+  </div>
+  <div class="mermaid-viewport overflow-auto cursor-grab active:cursor-grabbing" style="max-height: 500px;">
+    <div class="mermaid-canvas transition-transform duration-200 origin-top-left">
+      <pre class="mermaid" set:html={chart} />
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  // Load + render logic runs on every page load AND every View-Transitions swap
+  // (astro:page-load fires for both). Everything is guarded so we never render a
+  // diagram twice or stack observers/listeners across navigations — that double
+  // rendering was the source of the flicker.
+  (function () {
+    const MERMAID_SRC = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    let mermaidPromise = null;
+    let themeObserver = null;
+    let currentTheme = null;
+    let debounceTimer = null;
+
+    function loadMermaid() {
+      if (!mermaidPromise) {
+        mermaidPromise = import(MERMAID_SRC).then((m) => m.default);
+      }
+      return mermaidPromise;
+    }
+
+    function getTheme() {
+      return document.documentElement.classList.contains('dark') ? 'dark' : 'default';
+    }
+
+    async function renderAll(mermaid, { force = false } = {}) {
+      const theme = getTheme();
+      mermaid.initialize({ startOnLoad: false, theme });
+      const nodes = [];
+      document.querySelectorAll('pre.mermaid').forEach((pre) => {
+        // Stash the source once so re-renders (theme change) have the original.
+        if (pre.dataset.originalChart === undefined) {
+          pre.dataset.originalChart = pre.textContent;
+        }
+        // Only (re)render nodes that haven't been rendered, unless forced.
+        if (force || pre.getAttribute('data-processed') !== 'true') {
+          pre.innerHTML = pre.dataset.originalChart;
+          pre.removeAttribute('data-processed');
+          nodes.push(pre);
+        }
+      });
+      if (nodes.length) {
+        try {
+          await mermaid.run({ nodes });
+        } catch (e) {
+          console.error('mermaid render error', e);
+        }
+      }
+    }
+
+    function setupThemeObserver(mermaid) {
+      // Re-render on theme change ONLY. The theme script re-adds the same class on
+      // every swap; re-rendering on that is what caused the flicker, so we compare
+      // the resolved theme and debounce.
+      if (themeObserver) themeObserver.disconnect();
+      currentTheme = getTheme();
+      themeObserver = new MutationObserver(() => {
+        const next = getTheme();
+        if (next === currentTheme) return; // no actual theme change → do nothing
+        currentTheme = next;
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => renderAll(mermaid, { force: true }), 100);
+      });
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class'],
+      });
+    }
+
+    function setupControls() {
+      document.querySelectorAll('.mermaid-container').forEach((container) => {
+        if (container.dataset.controlsBound === 'true') return; // guard against re-binding
+        container.dataset.controlsBound = 'true';
+
+        let scale = 1;
+        const canvas = container.querySelector('.mermaid-canvas');
+        const viewport = container.querySelector('.mermaid-viewport');
+
+        function setScale(newScale) {
+          scale = Math.max(0.5, Math.min(3, newScale));
+          canvas.style.transform = `scale(${scale})`;
+          canvas.style.width = `${100 / scale}%`;
+        }
+
+        container.querySelector('.mermaid-zoom-in')?.addEventListener('click', () => setScale(scale + 0.25));
+        container.querySelector('.mermaid-zoom-out')?.addEventListener('click', () => setScale(scale - 0.25));
+        container.querySelector('.mermaid-zoom-reset')?.addEventListener('click', () => {
+          setScale(1);
+          viewport.scrollTo(0, 0);
+        });
+
+        viewport?.addEventListener('wheel', (e) => {
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            setScale(scale + (e.deltaY > 0 ? -0.1 : 0.1));
+          }
+        }, { passive: false });
+
+        let isDragging = false, startX, startY, scrollLeft, scrollTop;
+        viewport?.addEventListener('mousedown', (e) => {
+          isDragging = true;
+          startX = e.pageX - viewport.offsetLeft;
+          startY = e.pageY - viewport.offsetTop;
+          scrollLeft = viewport.scrollLeft;
+          scrollTop = viewport.scrollTop;
+        });
+        viewport?.addEventListener('mousemove', (e) => {
+          if (!isDragging) return;
+          e.preventDefault();
+          const x = e.pageX - viewport.offsetLeft;
+          const y = e.pageY - viewport.offsetTop;
+          viewport.scrollLeft = scrollLeft - (x - startX);
+          viewport.scrollTop = scrollTop - (y - startY);
+        });
+        document.addEventListener('mouseup', () => { isDragging = false; });
+
+        container.querySelector('.mermaid-fullscreen')?.addEventListener('click', () => {
+          if (!document.fullscreenElement) {
+            container.requestFullscreen();
+            viewport.style.maxHeight = '100vh';
+          } else {
+            document.exitFullscreen();
+          }
+        });
+        container.addEventListener('fullscreenchange', () => {
+          if (!document.fullscreenElement) viewport.style.maxHeight = '500px';
+        });
+      });
+    }
+
+    async function init() {
+      if (!document.querySelector('pre.mermaid')) return; // no diagrams on this page
+      const mermaid = await loadMermaid();
+      await renderAll(mermaid);
+      setupThemeObserver(mermaid);
+      setupControls();
+    }
+
+    // Tear down the theme observer before a View-Transitions swap so observers
+    // don't accumulate across navigations (the other big flicker cause).
+    document.addEventListener('astro:before-swap', () => {
+      if (themeObserver) { themeObserver.disconnect(); themeObserver = null; }
+      clearTimeout(debounceTimer);
+    });
+
+    // Fires on first load and after every View-Transitions navigation.
+    document.addEventListener('astro:page-load', init);
+  })();
+</script>
