@@ -1,0 +1,210 @@
+---
+title: "Making a Portfolio Discoverable: OG Images, JSON-LD, and the Canonical Domain Trap"
+description: "A practical writeup of the SEO and metadata work I did on this site — what Open Graph and JSON-LD actually are, how per-post OG images are generated at build time, and the www-vs-apex sitemap bug that quietly breaks indexing."
+date: "Sep 21 2026"
+tags: ["seo", "astro", "web"]
+---
+
+import Mermaid from '@components/Mermaid.astro';
+
+I spend most of my time on infrastructure — bare metal, Kubernetes, GitOps. So when I finally sat down to make this portfolio *discoverable*, I treated it like any other platform problem: figure out the contract each consumer expects, make the output match it, and verify. The "consumers" here are Google's crawler and social media scrapers. This post is what I learned and exactly how I implemented it, with code.
+
+## Why metadata matters for a static site
+
+A static site is just HTML. A human reads it fine, but two other audiences read it very differently:
+
+- **Search crawlers** (Googlebot) want to know: what is this page, who wrote it, when, and how does it relate to other pages?
+- **Social scrapers** (LinkedIn, Twitter/X, Slack) want a title, description, and an image to build a preview card.
+
+Neither of them "sees" your nicely rendered page the way a browser does. They read the `<head>` and any structured metadata you provide. If it's missing or inconsistent, you get generic previews, poor indexing, and — as I found out — outright errors.
+
+## Open Graph: the share card contract
+
+**Open Graph (OG)** is a set of `<meta>` tags (originally from Facebook) that tell any platform how to render a link preview. The important ones:
+
+```html
+<meta property="og:title" content="My Post Title" />
+<meta property="og:description" content="A short summary." />
+<meta property="og:image" content="https://www.example.com/og/my-post.png" />
+<meta property="og:type" content="article" />
+```
+
+The `og:image` is what makes a shared link look like a *card* instead of a bare URL. The recommended size is **1200×630**.
+
+### Generating an OG image per post — at build time
+
+The template I started from used one static image for every page. That's a missed opportunity: a share card with the actual post title gets far more clicks. But I didn't want a runtime image service — this is a static site and I want it to stay that way.
+
+The solution: generate a PNG per post **during the build**, using [`satori`](https://github.com/vercel/satori) (renders an element tree to SVG) and [`sharp`](https://sharp.pixelplumbing.com/) (rasterizes SVG to PNG). Both run at build time; the output is just static files.
+
+Here's the core of the endpoint (`src/pages/og/[...slug].png.ts`):
+
+```ts
+import satori from "satori";
+import sharp from "sharp";
+import { readFile } from "node:fs/promises";
+
+// satori needs woff/ttf/otf — NOT woff2.
+const interRegular = await readFile(
+  "node_modules/@fontsource/inter/files/inter-latin-400-normal.woff"
+);
+
+async function renderOG(title: string, subtitle: string): Promise<Buffer> {
+  const svg = await satori(
+    {
+      type: "div",
+      props: {
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width: "100%",
+          height: "100%",
+          padding: "80px",
+          backgroundColor: "#0a0a0a",
+          color: "#ffffff",
+          fontFamily: "Inter",
+        },
+        children: [
+          { type: "div", props: { children: subtitle } },
+          { type: "div", props: { style: { fontSize: 64 }, children: title } },
+          { type: "div", props: { children: "vamsisethu.com" } },
+        ],
+      },
+    },
+    { width: 1200, height: 630, fonts: [{ name: "Inter", data: interRegular, weight: 400, style: "normal" }] }
+  );
+
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+```
+
+Then a standard Astro `getStaticPaths` maps every non-draft post to its own image, and the page's `<head>` points `og:image` at `/og/<slug>.png`.
+
+Two gotchas that cost me time:
+
+- **satori doesn't accept `woff2`.** Fontsource ships both; I had to read the `.woff` variant.
+- **The `Response` body must be a `Uint8Array`, not a raw Node `Buffer`** — the Web `Response` API rejects `Buffer` on its type contract. `new Uint8Array(buffer)` fixes it.
+
+## JSON-LD: telling Google what things *are*
+
+Open Graph is for humans-sharing-links. **JSON-LD** (JSON for Linking Data) is for machines. It's a `<script>` block of structured data using the [schema.org](https://schema.org) vocabulary that describes the *entities* on a page — a person, an article, a product — in a way search engines parse directly.
+
+Why bother? Because "a page with the word Vamsi on it" is far weaker than "this page is about a `Person` named Vamsi Krishna Sethu, who is a Site Reliability Engineer, holds this credential, and knows about these topics." The second one is what feeds **rich results** (author/date shown in search) and, over time, a **Knowledge Panel**.
+
+### Person schema (homepage)
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Vamsi Krishna Sethu",
+  "jobTitle": "Site Reliability Engineer",
+  "url": "https://www.vamsisethu.com/",
+  "sameAs": [
+    "https://github.com/Vamsi-344",
+    "https://www.linkedin.com/in/vamsi344/"
+  ],
+  "hasCredential": {
+    "@type": "EducationalOccupationalCredential",
+    "name": "CNCF Kubestronaut",
+    "credentialCategory": "certification",
+    "recognizedBy": { "@type": "Organization", "name": "Cloud Native Computing Foundation" }
+  },
+  "knowsAbout": ["Kubernetes", "Site Reliability Engineering", "GitOps", "AI Infrastructure"]
+}
+```
+
+The `sameAs` array links my identity across profiles — that's how Google connects "this site's author" to "this GitHub/LinkedIn person." `hasCredential` encodes a real, verifiable certification.
+
+### BlogPosting schema (each post)
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Post title",
+  "datePublished": "2026-09-21T00:00:00.000Z",
+  "author": { "@type": "Person", "name": "Vamsi Krishna Sethu" },
+  "image": "https://www.vamsisethu.com/og/post-slug.png"
+}
+```
+
+In Astro I made this reusable: a `structuredData` prop on the shared `<Head>` component that serializes to a `<script type="application/ld+json">`. One important detail — Astro will try to *process* a `<script>` unless you mark it `is:inline`:
+
+```astro
+{structuredData && (
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />
+)}
+```
+
+You can validate the output with Google's [Rich Results Test](https://search.google.com/test/rich-results).
+
+## The canonical domain trap (the bug that broke my sitemap)
+
+This is the one that actually bit me, and it's worth the whole post on its own.
+
+A **sitemap** is an XML file listing your pages so crawlers can discover them. Astro's sitemap integration generates it from your configured `site` URL. I submitted it to Google Search Console and got:
+
+> **Sitemap could not be read.**
+
+The site is served on Vercel, which redirects the apex domain to `www`:
+
+<Mermaid chart={`graph LR
+    G["Googlebot"] -->|"GET /sitemap-0.xml"| A["vamsisethu.com<br/>(apex)"]
+    A -->|"308 Redirect"| W["www.vamsisethu.com"]
+    G -->|"retry"| W
+    W -->|"200 OK · XML"| G
+    W -.->|"URLs inside point<br/>back to apex"| A
+`} />
+
+The root cause was a **mismatch**: my Astro config declared `site: "https://vamsisethu.com"` (apex), but Vercel actually served everything on `www`. So every URL inside the sitemap pointed to the apex domain, which then 308-redirected to `www`. The crawler fetching the apex sitemap URL got a redirect and a plain-text "Redirecting..." body instead of XML — hence "could not be read."
+
+The deeper problem is **duplicate URLs**. Search engines treat `vamsisethu.com` and `www.vamsisethu.com` as different pages. If your canonical tags, sitemap, and internal links are split across both, any ranking authority gets **diluted across two versions** of every page.
+
+The fix was one line — make the code agree with reality:
+
+```js
+// astro.config.mjs
+export default defineConfig({
+  site: "https://www.vamsisethu.com", // was: https://vamsisethu.com
+  // ...
+});
+```
+
+Now the sitemap, every `<link rel="canonical">`, the OG image URLs, and the RSS links all use `www` — matching where the content is actually served. No redirects, no ambiguity, all signals consolidated onto one domain.
+
+**Lesson:** pick one canonical host (`www` or apex), enforce the redirect at the edge, and make your framework's `site` match the *destination* of that redirect — not the source.
+
+## The smaller touches
+
+A few other things that round out the metadata story:
+
+- **A real 404 page** so broken links land somewhere styled instead of a bare host default.
+- **Accurate reading time** — the original word count included fenced code blocks and MDX `import` lines, inflating the estimate on code-heavy posts. Stripping those first gives an honest number.
+- **Sitemap hints** — `changefreq`, `priority`, and `lastmod` per page type, plus filtering out the OG image endpoints so only real pages are listed.
+- **Removing template cruft** — the starter shipped demo content and unused assets. Gone.
+
+## What actually changes, and when
+
+Being honest about expectations, because SEO is full of magical thinking:
+
+| Change | Effect | Timeline |
+|--------|--------|----------|
+| Canonical domain fix | Sitemap readable; signals consolidated | Immediate (re-crawl) |
+| JSON-LD | Rich-result eligibility; entity recognition | Days to weeks |
+| OG images | Better social click-through | Immediate on next share |
+| Sitemap hints | Faster/more-targeted crawling | Gradual |
+
+None of this manufactures rankings. What it does is remove the technical friction that was stopping good content from being discovered, attributed, and consolidated correctly. It's plumbing — but plumbing is what I do.
+
+## Verify, don't assume
+
+The infra habit applies here too. After deploying:
+
+1. Open `https://www.vamsisethu.com/sitemap-index.xml` — confirm it's XML with `www` URLs.
+2. Run a post through the [Rich Results Test](https://search.google.com/test/rich-results) to confirm the JSON-LD parses.
+3. Paste a URL into a [social card validator](https://www.opengraph.xyz/) to see the OG image.
+4. Submit the sitemap in Google Search Console — ideally under a **Domain property**, which covers `www` and apex together and sidesteps the whole trap above.
+
+That last point is the meta-lesson: the same discipline that keeps a Kubernetes platform healthy — match the contract, remove ambiguity, verify against reality — works just as well on a static website's `<head>`.
