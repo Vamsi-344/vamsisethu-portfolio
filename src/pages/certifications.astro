@@ -1,0 +1,99 @@
+---
+import PageLayout from "@layouts/PageLayout.astro";
+import Container from "@components/Container.astro";
+import Link from "@components/Link.astro";
+import { CERTIFICATIONS, CERTS } from "@consts";
+
+const allCreds = [CERTS.KUBESTRONAUT, ...CERTS.ITEMS];
+
+const certsSchema = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: "Certifications",
+  itemListElement: allCreds.map((c, i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    item: {
+      "@type": "EducationalOccupationalCredential",
+      name: c.NAME,
+      credentialCategory: "certification",
+      url: c.HREF,
+      recognizedBy: {
+        "@type": "Organization",
+        name: "Cloud Native Computing Foundation",
+        url: "https://www.cncf.io/",
+      },
+    },
+  })),
+};
+---
+
+<PageLayout
+  title={CERTIFICATIONS.TITLE}
+  description={CERTIFICATIONS.DESCRIPTION}
+  structuredData={certsSchema}
+>
+  <Container>
+    <div class="space-y-10">
+      <div class="animate font-semibold text-black dark:text-white">
+        Certifications
+      </div>
+
+      <section class="animate space-y-4">
+        <p>
+          I'm a <Link href={CERTS.KUBESTRONAUT.HREF} external aria-label="Verify Kubestronaut on Credly">CNCF Kubestronaut</Link> —
+          awarded for earning all five active CNCF Kubernetes certifications.
+          Every credential below links to its public Credly verification.
+        </p>
+      </section>
+
+      <!-- Kubestronaut (headline credential) -->
+      <section class="animate">
+        <a
+          href={CERTS.KUBESTRONAUT.HREF}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Verify ${CERTS.KUBESTRONAUT.NAME} on Credly`}
+          class="block py-4 px-4 rounded-lg border border-black/15 dark:border-white/20 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-300 ease-in-out"
+        >
+          <div class="font-semibold text-black dark:text-white">
+            {CERTS.KUBESTRONAUT.NAME}
+          </div>
+          <div class="text-sm opacity-75">
+            {CERTS.KUBESTRONAUT.ISSUER}
+          </div>
+          <div class="text-sm mt-1">
+            {CERTS.KUBESTRONAUT.DESCRIPTION}
+          </div>
+        </a>
+      </section>
+
+      <!-- Individual certifications -->
+      <section class="animate space-y-4">
+        <h5 class="font-semibold text-black dark:text-white">
+          Kubernetes certifications
+        </h5>
+        <ul class="flex flex-col gap-4">
+          {CERTS.ITEMS.map((cert) => (
+            <li>
+              <a
+                href={cert.HREF}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Verify ${cert.NAME} on Credly`}
+                class="block py-3 px-4 rounded-lg border border-black/15 dark:border-white/20 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-300 ease-in-out"
+              >
+                <div class="font-semibold text-black dark:text-white">
+                  {cert.NAME}
+                </div>
+                <div class="text-sm opacity-75">
+                  {cert.ISSUER}
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  </Container>
+</PageLayout>
