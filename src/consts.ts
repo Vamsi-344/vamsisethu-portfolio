@@ -10,7 +10,7 @@ export const SITE: Site = {
 
 export const HOME: Metadata = {
   TITLE: "Home",
-  DESCRIPTION: "Portfolio and technical writing by Vamsi Krishna Sethu, a DevOps and Site Reliability Engineer focused on Kubernetes, cloud infrastructure, GitOps, and observability.",
+  DESCRIPTION: "Portfolio and technical writing by Vamsi Krishna Sethu — CNCF Kubestronaut and Site Reliability Engineer working across the stack, from bare metal to Kubernetes, GitOps, and cloud infrastructure.",
 };
 
 export const BLOG: Metadata = {
@@ -36,6 +36,10 @@ export const SOCIALS: Socials = [
   { 
     NAME: "linkedin",
     HREF: "https://www.linkedin.com/in/vamsi344/",
+  },
+  {
+    NAME: "kubestronaut",
+    HREF: "https://www.credly.com/badges/7d557f73-f029-4d2c-9aef-f8a47a3b97fc/public_url",
   },
   {
     NAME: "resume",

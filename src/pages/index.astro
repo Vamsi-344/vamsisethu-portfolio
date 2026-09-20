@@ -41,6 +41,17 @@ const personSchema = {
   sameAs: SOCIALS
     .filter(s => s.HREF.startsWith("http"))
     .map(s => s.HREF),
+  hasCredential: {
+    "@type": "EducationalOccupationalCredential",
+    name: "CNCF Kubestronaut",
+    credentialCategory: "certification",
+    recognizedBy: {
+      "@type": "Organization",
+      name: "Cloud Native Computing Foundation",
+      url: "https://www.cncf.io/",
+    },
+    url: "https://www.credly.com/badges/7d557f73-f029-4d2c-9aef-f8a47a3b97fc/public_url",
+  },
   knowsAbout: [
     "Kubernetes",
     "Site Reliability Engineering",
@@ -49,6 +60,8 @@ const personSchema = {
     "GitOps",
     "Observability",
     "Platform Engineering",
+    "Bare-metal Provisioning",
+    "AI Infrastructure",
   ],
 };
 
@@ -63,15 +76,19 @@ const personSchema = {
       <section>
         <article class="space-y-4">
           <p class="animate">
-            I am a Software Engineer focused on DevOps and Site Reliability Engineering.
-            I build production-grade Kubernetes platforms, GitOps workflows, CI/CD
-            automation, cloud-native storage, observability systems, and bare-metal
-            provisioning flows.
+            I am a Software Engineer and <Link href="https://www.credly.com/badges/7d557f73-f029-4d2c-9aef-f8a47a3b97fc/public_url" external aria-label="Verify Kubestronaut credential on Credly">CNCF Kubestronaut</Link>
+            focused on DevOps and Site Reliability Engineering. I work across the
+            stack — from bare metal to Kubernetes — building production-grade
+            platforms, GitOps workflows, CI/CD automation, cloud-native storage,
+            observability, and provisioning for AI infrastructure.
           </p>
           <p class="animate">
-            My recent work spans Kubernetes, OpenShift, OpenStack, KubeVirt, Rook Ceph,
-            ArgoCD, Tekton, Jenkins, Prometheus, Grafana, Ansible, Terraform, Python,
-            Bash, and Golang.
+            Right now I'm building multi-cluster Kubernetes platforms with Rancher
+            and ArgoCD Agent, and standing up AWS for inference-as-a-service. My
+            recent work spans bare-metal Kubernetes (RKE2, Kubespray), MAAS-driven
+            provisioning, and secure access with Teleport, alongside OpenShift,
+            OpenStack, KubeVirt, Rook Ceph, Tekton, Prometheus, Grafana, Ansible,
+            Terraform, Python, Bash, and Golang.
           </p>
           <p class="animate">
             I use this site to share selected projects, engineering notes, and practical
