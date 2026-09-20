@@ -16,11 +16,12 @@ interface Props {
   title: string;
   description: string;
   image?: string;
+  structuredData?: Record<string, unknown> | Record<string, unknown>[];
 }
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
-const { title, description, image = "/og.svg" } = Astro.props;
+const { title, description, image = "/og.svg", structuredData } = Astro.props;
 ---
 
 <!-- Global Metadata -->
@@ -63,6 +64,15 @@ const { title, description, image = "/og.svg" } = Astro.props;
 
 <!-- RSS Link -->
 <link rel="alternate" type="application/rss+xml" title={SITE.NAME} href={new URL("rss.xml", Astro.site)} />
+
+<!-- Structured Data (JSON-LD) -->
+{structuredData && (
+  <script
+    type="application/ld+json"
+    is:inline
+    set:html={JSON.stringify(structuredData)}
+  />
+)}
 
 <script>
   import type { TransitionBeforeSwapEvent } from "astro:transitions/client";

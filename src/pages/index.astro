@@ -28,9 +28,33 @@ const work = await Promise.all(
   })
 );
 
+const siteURL = Astro.site?.toString() ?? "https://vamsisethu.com/";
+
+const personSchema = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: SITE.NAME,
+  url: siteURL,
+  email: `mailto:${SITE.EMAIL}`,
+  jobTitle: "Site Reliability Engineer",
+  description: HOME.DESCRIPTION,
+  sameAs: SOCIALS
+    .filter(s => s.HREF.startsWith("http"))
+    .map(s => s.HREF),
+  knowsAbout: [
+    "Kubernetes",
+    "Site Reliability Engineering",
+    "DevOps",
+    "Cloud Infrastructure",
+    "GitOps",
+    "Observability",
+    "Platform Engineering",
+  ],
+};
+
 ---
 
-<PageLayout title={HOME.TITLE} description={HOME.DESCRIPTION}>
+<PageLayout title={HOME.TITLE} description={HOME.DESCRIPTION} structuredData={personSchema}>
   <Container>
     <h4 class="animate font-semibold text-black dark:text-white">
       Hi, I'm Vamsi Krishna Sethu

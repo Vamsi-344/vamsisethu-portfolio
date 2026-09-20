@@ -5,6 +5,7 @@ import Container from "@components/Container.astro";
 import FormattedDate from "@components/FormattedDate.astro";
 import { readingTime } from "@lib/utils";
 import BackToPrev from "@components/BackToPrev.astro";
+import { SITE } from "@consts";
 
 export async function getStaticPaths() {
   const posts = (await getCollection("blog"))
@@ -19,9 +20,40 @@ type Props = CollectionEntry<"blog">;
 
 const post = Astro.props;
 const { Content } = await post.render();
+
+const ogImage = `/og/${post.slug}.png`;
+
+const articleSchema = {
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  headline: post.data.title,
+  description: post.data.description,
+  datePublished: post.data.date.toISOString(),
+  image: new URL(ogImage, Astro.site).toString(),
+  url: new URL(Astro.url.pathname, Astro.site).toString(),
+  keywords: post.data.tags?.join(", "),
+  author: {
+    "@type": "Person",
+    name: SITE.NAME,
+    url: Astro.site?.toString(),
+  },
+  publisher: {
+    "@type": "Person",
+    name: SITE.NAME,
+  },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": new URL(Astro.url.pathname, Astro.site).toString(),
+  },
+};
 ---
 
-<PageLayout title={post.data.title} description={post.data.description}>
+<PageLayout
+  title={post.data.title}
+  description={post.data.description}
+  image={ogImage}
+  structuredData={articleSchema}
+>
   <Container>
     <div class="animate">
       <BackToPrev href="/blog">
@@ -37,10 +69,23 @@ const { Content } = await post.render();
         <div class="font-base text-sm">
           {readingTime(post.body)}
         </div>
+        &bull;
+        <div class="font-base text-sm">
+          By {SITE.NAME}
+        </div>
       </div>
       <div class="animate text-2xl font-semibold text-black dark:text-white">
         {post.data.title}
       </div>
+      {post.data.tags && post.data.tags.length > 0 && (
+        <ul class="animate flex flex-wrap gap-2 pt-2">
+          {post.data.tags.map((tag) => (
+            <li class="text-xs px-2 py-1 rounded-full border border-black/15 dark:border-white/20 opacity-75">
+              {tag}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
     <article class="animate">
       <Content />

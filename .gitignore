@@ -23,3 +23,8 @@ pnpm-debug.log*
 
 # kirograph local code index
 .kirograph/
+
+# agent tooling artifacts (not part of the site)
+.agents/
+.claude/
+skills-lock.json

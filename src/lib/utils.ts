@@ -13,10 +13,23 @@ export function formatDate(date: Date) {
   }).format(date);
 }
 
-export function readingTime(html: string) {
-  const textOnly = html.replace(/<[^>]+>/g, "");
-  const wordCount = textOnly.split(/\s+/).length;
-  const readingTimeMinutes = ((wordCount / 200) + 1).toFixed();
+export function readingTime(content: string) {
+  const textOnly = content
+    // strip fenced code blocks
+    .replace(/```[\s\S]*?```/g, "")
+    // strip inline code
+    .replace(/`[^`]*`/g, "")
+    // strip MDX/JS import & export statements
+    .replace(/^\s*(import|export)\s.*$/gm, "")
+    // strip JSX/HTML tags
+    .replace(/<[^>]+>/g, "")
+    // strip markdown link/image URLs, keep visible text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    // strip remaining markdown symbols
+    .replace(/[#>*_~|-]/g, " ");
+
+  const wordCount = textOnly.split(/\s+/).filter(Boolean).length;
+  const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
   return `${readingTimeMinutes} min read`;
 }
 
