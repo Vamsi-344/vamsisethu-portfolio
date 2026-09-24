@@ -1,0 +1,205 @@
+---
+title: "A Certificate Delivery Bridge Between Argo CD and Non-AWS Clusters"
+description: "How a hub-issued Argo CD Agent certificate crosses an AWS Secrets Manager boundary through ESO PushSecret and ExternalSecret, without giving the non-AWS spoke ACM Private CA access."
+date: "Sep 22 2026"
+tags:
+  - Kubernetes
+  - GitOps
+  - External Secrets Operator
+  - Argo CD
+  - PKI
+---
+
+import Mermaid from '@components/Mermaid.astro';
+
+Managing a fleet of Kubernetes clusters becomes more interesting when the fleet is split across trust domains. Some clusters run on AWS and can use native AWS identity. Others run outside AWS and still need to participate in the same GitOps control plane.
+
+That raises a practical question: **how do we deliver an Argo CD Agent certificate to a non-AWS spoke without giving that spoke access to the certificate authority?**
+
+The answer we implemented is a small, explicit delivery bridge:
+
+- the **hub** issues the certificate;
+- the hub publishes it to AWS Secrets Manager with ESO `PushSecret`;
+- the spoke reads only its own secret with ESO `ExternalSecret`;
+- the resulting Kubernetes Secret is consumed by the Argo CD Agent.
+
+The spoke gets the credential it needs, but not the ability to issue another credential.
+
+## The architecture
+
+<Mermaid chart={`graph LR
+    PCA["AWS Private CA"] --> ISSUER["Hub AWSPCAClusterIssuer"]
+    ISSUER --> CERT["Hub Certificate\nargocd-agent-client-tls"]
+    CERT --> PUSH["ESO PushSecret"]
+    PUSH --> SM["AWS Secrets Manager\nper-cluster path"]
+    SM --> BRIDGE["Spoke IAM Roles Anywhere\nread-only bridge"]
+    BRIDGE --> PULL["ESO ExternalSecret"]
+    PULL --> SPOKE["Spoke Secret\nargocd-agent-client-tls"]
+    SPOKE --> AGENT["Argo CD Agent"]
+`} />
+
+The important boundary is between the hub and the spoke. The hub owns issuance. The spoke owns consumption.
+
+## Why the spoke should not issue this certificate
+
+The non-AWS cluster needs AWS credentials to use IAM Roles Anywhere, but that does not mean it should receive ACM Private CA permissions.
+
+Granting the spoke `acm-pca:IssueCertificate` would make it an issuer rather than a consumer. A compromised spoke could then mint certificates for identities outside its intended scope, depending on the PCA policy and certificate template.
+
+Instead, the spoke receives only the material needed by its own Agent:
+
+- the private key;
+- the hub-issued client certificate;
+- the trusted Agent CA bundle where required.
+
+The ACM PCA API remains a hub-side concern. The spoke has no cross-account PCA dependency and no PCA signing permission.
+
+## Step 1: the hub issues the certificate
+
+The hub runs cert-manager with an `AWSPCAClusterIssuer` named `argocd-agent-ca`. A Kubernetes `Certificate` requests the Agent client certificate from that issuer.
+
+Conceptually, the hub-side resources look like this:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: <cluster>-agent-client-tls
+  namespace: argocd
+spec:
+  secretName: argocd-agent-client-tls
+  issuerRef:
+    name: argocd-agent-ca
+    kind: AWSPCAClusterIssuer
+  commonName: <cluster-identity>
+  usages:
+    - client auth
+```
+
+The actual subject, URI SAN, lifetime, and PCA template are part of the platform's identity contract. They should be reviewed as identity data, not treated as incidental certificate fields.
+
+Once cert-manager successfully signs the certificate, the hub has a normal Kubernetes TLS Secret. That Secret is the source for the next step.
+
+## Step 2: ESO PushSecret publishes a controlled copy
+
+External Secrets Operator's `PushSecret` turns the hub Secret into a Secrets Manager entry. The push is deliberately scoped to the target cluster's path rather than to a shared fleet-wide secret.
+
+```yaml
+apiVersion: external-secrets.io/v1alpha1
+kind: PushSecret
+metadata:
+  name: <cluster>-agent-client-tls
+  namespace: argocd
+spec:
+  secretStoreRefs:
+    - name: hub-secret-store
+      kind: ClusterSecretStore
+  selector:
+    secret:
+      name: <cluster>-agent-client-tls
+  data:
+    - match:
+        secretKey: tls.crt
+        remoteRef:
+          remoteKey: platform/<cluster>/argocd/agent-client-tls
+```
+
+In production, the resource includes the complete key mapping required by the consumer, including the private key and certificate chain. The example is intentionally abbreviated: secret values never belong in Git, and the remote path is part of the authorization boundary.
+
+The hub's push role needs permission to write only the target secret path. It does not need broad Secrets Manager administration.
+
+## Step 3: the spoke pulls its own secret
+
+The spoke has a per-cluster Roles Anywhere identity. ESO uses that identity through a `SecretStore` or `ClusterSecretStore` to read the corresponding Secrets Manager entry.
+
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: argocd-agent-client-tls
+  namespace: argocd
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: spoke-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: argocd-agent-client-tls
+    creationPolicy: Owner
+  data:
+    - secretKey: tls.crt
+      remoteRef:
+        key: platform/<cluster>/argocd/agent-client-tls
+        property: tls.crt
+```
+
+The same pattern can deliver the Agent CA trust bundle. Keeping the client certificate and trust bundle as separate logical resources makes rotation and troubleshooting clearer, while both remain scoped to the same cluster path.
+
+The spoke's permission should be read-only and resource-scoped. A secret reader for cluster A must not be able to read cluster B's certificate, and it must not be able to write or delete secrets.
+
+## Rotation is a pipeline, not a manual replacement
+
+The key benefit of this design is that rotation follows the same declarative path as initial delivery:
+
+1. cert-manager renews or replaces the hub-side Certificate.
+2. ESO observes the updated Kubernetes Secret.
+3. `PushSecret` updates the per-cluster Secrets Manager entry.
+4. The spoke's `ExternalSecret` refreshes its Kubernetes Secret.
+5. The Agent reloads or restarts according to its certificate-reload behavior.
+
+There is no need to copy private keys through a terminal session or commit an encoded value to Git.
+
+Rotation still needs verification. A production implementation should test certificate expiry alerts, PushSecret failure, spoke refresh failure, and Agent behavior during overlap between the old and new credentials.
+
+## What changed in the PCA-free non-AWS onboarding
+
+This design is easy to confuse with the separate question of how the non-AWS spoke authenticates to AWS.
+
+The spoke-side Roles Anywhere CA is now self-signed and generated in the cluster during onboarding. That CA is used as the spoke's own trust anchor. It does not require ACM PCA.
+
+The Agent certificate is different:
+
+- **Spoke identity CA:** self-signed in the non-AWS cluster for Roles Anywhere.
+- **Argo CD Agent client certificate:** issued by the hub's `argocd-agent-ca` issuer.
+- **Delivery mechanism:** hub `PushSecret` → Secrets Manager → spoke `ExternalSecret`.
+
+So the non-AWS spoke is PCA-free from an issuance and API-access perspective, while the hub can still use its established PCA-backed issuer for certificates it controls.
+
+## Security properties
+
+This bridge gives us several useful properties:
+
+- **Centralized issuance:** only the hub can request the Agent certificate.
+- **No PCA access on the spoke:** a compromised spoke cannot call ACM PCA.
+- **Per-cluster isolation:** each spoke reads only its own Secrets Manager path.
+- **Short-lived AWS sessions:** Roles Anywhere provides temporary credentials for the ESO reader rather than a permanent AWS access key.
+- **Git-safe secrets:** private key material stays in Kubernetes Secrets and Secrets Manager, not source control.
+- **Auditable movement:** certificate issuance, secret push, secret read, and Agent use are separate events with separate owners.
+- **Declarative recovery:** deleting the spoke Secret allows ESO to recreate it from the remote source.
+
+The boundary is only as strong as the policies behind it. The hub push role, spoke read role, KMS permissions, and Secrets Manager resource policy must all be scoped to the same cluster identity.
+
+## Operational ordering matters
+
+There is one subtle bootstrap constraint: the spoke Secret is created by the GitOps resources that install ESO and the `ExternalSecret`. Therefore a bootstrap action must not require the Agent Secret to exist **before** the root application that creates those resources has been applied.
+
+The safe sequence is:
+
+1. establish the spoke's basic cluster identity and trust anchor;
+2. install the platform dependencies, including ESO;
+3. apply the root application;
+4. wait for the `ExternalSecret` to become Ready;
+5. verify the Agent Secret and Agent connection;
+6. only then enable dependent platform workloads.
+
+This is especially important when one shared bootstrap action serves both AWS and non-AWS clusters. The AWS path may create some Agent material directly, while the non-AWS path depends on the ESO bridge. Shared verification logic must account for both delivery models without weakening either one.
+
+## Takeaways
+
+- **Issue centrally, consume locally.** A spoke needs the certificate, not the CA permission.
+- **Use Secrets Manager as a controlled delivery boundary.** `PushSecret` and `ExternalSecret` make the handoff observable and repeatable.
+- **Scope every path by cluster.** Per-cluster secret paths prevent one spoke from becoming the credential store for the fleet.
+- **Separate identity from delivery.** The self-signed Roles Anywhere CA authenticates the spoke to AWS; the hub-issued Agent certificate authenticates the spoke to Argo CD.
+- **Design bootstrap ordering explicitly.** If ESO creates the Agent Secret, the workflow must allow GitOps to create ESO resources before checking that Secret.
+
+The result is a practical compromise between centralized PKI governance and decentralized cluster operation: the hub controls who gets a certificate, while each spoke can retrieve and rotate only the credential intended for itself.
