@@ -139,17 +139,37 @@ The spoke's permission should be read-only and resource-scoped. A secret reader 
 
 ## Rotation is a pipeline, not a manual replacement
 
-The key benefit of this design is that rotation follows the same declarative path as initial delivery:
+The key benefit of this design is that rotation follows the same declarative path as initial delivery. The timing is designed around **overlap**, not around the expiry boundary.
 
-1. cert-manager renews or replaces the hub-side Certificate.
-2. ESO observes the updated Kubernetes Secret.
-3. `PushSecret` updates the per-cluster Secrets Manager entry.
-4. The spoke's `ExternalSecret` refreshes its Kubernetes Secret.
+For example, certificates may be issued with a 90-day lifetime and rotated when fewer than 30 days remain. The exact values are policy decisions, but the important property is the safety margin:
+
+```text
+Day 0       certificate issued
+Day 60      renewal window opens (<30 days remaining)
+Day 60–90   old and new delivery paths may overlap
+Day 90      old certificate expires
+```
+
+A typical propagation sequence is:
+
+1. cert-manager renews or replaces the hub-side Certificate during the renewal window.
+2. ESO's `PushSecret` detects the changed Kubernetes Secret, with a configured check interval such as **one hour**.
+3. `PushSecret` updates the per-cluster AWS Secrets Manager entry.
+4. The spoke's `ExternalSecret` checks its remote value, potentially taking another **one hour** to observe the update.
 5. The Agent reloads or restarts according to its certificate-reload behavior.
+
+Even in the slower case, the new certificate reaches the spoke with substantial time remaining before the old 90-day certificate expires. A one-hour PushSecret interval plus a one-hour spoke refresh delay is propagation latency—not certificate invalidation. The old certificate remains valid during that window, so a delayed sync does not interrupt the Agent's connection.
+
+The safety model is therefore:
+
+- renew early enough to absorb controller scheduling and transient AWS/cluster failures;
+- keep the old certificate valid while the new one traverses the delivery bridge;
+- verify the spoke Secret and Agent before the old certificate reaches expiry;
+- alert when the remote copy or spoke copy is stale, rather than waiting for expiry.
 
 There is no need to copy private keys through a terminal session or commit an encoded value to Git.
 
-Rotation still needs verification. A production implementation should test certificate expiry alerts, PushSecret failure, spoke refresh failure, and Agent behavior during overlap between the old and new credentials.
+Rotation still needs verification. A production implementation should test certificate expiry alerts, PushSecret failure, spoke refresh failure, stale-secret detection, and Agent behavior during overlap between the old and new credentials. The renewal window and refresh intervals should be chosen together with the certificate lifetime so the worst-case propagation time is comfortably smaller than the remaining validity period.
 
 ## What changed in the PCA-free non-AWS onboarding
 
