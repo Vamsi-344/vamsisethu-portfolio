@@ -69,35 +69,45 @@ const personSchema = {
 
 <PageLayout title={HOME.TITLE} description={HOME.DESCRIPTION} structuredData={personSchema}>
   <Container>
-    <h4 class="animate font-semibold text-black dark:text-white">
-      Hi, I'm Vamsi Krishna Sethu
-    </h4>
     <div class="space-y-16">
-      <section>
-        <article class="space-y-4">
-          <p class="animate">
-            I am a Software Engineer and <Link href="https://www.credly.com/badges/7d557f73-f029-4d2c-9aef-f8a47a3b97fc/public_url" external aria-label="Verify Kubestronaut credential on Credly">CNCF Kubestronaut</Link>
-            focused on DevOps and Site Reliability Engineering. I work across the
-            stack — from bare metal to Kubernetes — building production-grade
-            platforms, GitOps workflows, CI/CD automation, cloud-native storage,
-            observability, and provisioning for AI infrastructure.
+      <section class="animate space-y-6">
+        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-orange-700 dark:text-orange-300">
+          Platform engineering · SRE · AI infrastructure
+        </p>
+        <h1 class="max-w-3xl text-4xl font-semibold tracking-tight text-black dark:text-white sm:text-5xl">
+          I build reliable platforms for difficult workloads.
+        </h1>
+        <article class="max-w-3xl space-y-4">
+          <p>
+            I'm Vamsi Krishna Sethu, a Software Engineer and <Link href="https://www.credly.com/badges/7d557f73-f029-4d2c-9aef-f8a47a3b97fc/public_url" external aria-label="Verify Kubestronaut credential on Credly">CNCF Kubestronaut</Link> working across the stack — from bare metal and private cloud to Kubernetes, AWS, and GitOps.
           </p>
-          <p class="animate">
-            Right now I'm building multi-cluster Kubernetes platforms with Rancher
-            and ArgoCD Agent, and standing up AWS for inference-as-a-service. My
-            recent work spans bare-metal Kubernetes (RKE2, Kubespray), MAAS-driven
-            provisioning, and secure access with Teleport, alongside OpenShift,
-            OpenStack, KubeVirt, Rook Ceph, Tekton, Prometheus, Grafana, Ansible,
-            Terraform, Python, Bash, and Golang.
-          </p>
-          <p class="animate">
-            I use this site to share selected projects, engineering notes, and practical
-            writeups from building infrastructure platforms.
-            <Link href="/Vamsi_Krishna_Sethu_Resume.pdf" aria-label="Resume">
-              View resume
-            </Link>
+          <p>
+            I design the automation, identity, observability, and recovery paths that make infrastructure repeatable in production. Right now, I build multi-cluster platforms with Rancher and Argo CD Agent for inference-as-a-service.
           </p>
         </article>
+        <div class="flex flex-wrap gap-3 pt-2">
+          <Link href="/projects" class="rounded-md bg-black px-4 py-2 text-sm text-white no-underline transition hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80">
+            Explore my work
+          </Link>
+          <Link href="/Vamsi_Krishna_Sethu_Resume.pdf" class="rounded-md border border-black/15 px-4 py-2 text-sm no-underline transition hover:border-black/40 dark:border-white/20 dark:hover:border-white/50">
+            View resume
+          </Link>
+        </div>
+      </section>
+
+      <section class="grid gap-4 sm:grid-cols-3" aria-label="Areas of focus">
+        <div class="rounded-lg border border-black/10 p-5 dark:border-white/10">
+          <p class="mb-2 text-sm font-semibold text-black dark:text-white">Platform reliability</p>
+          <p class="text-sm">Kubernetes, Rancher, RKE2, OpenShift, OpenStack, and production operations.</p>
+        </div>
+        <div class="rounded-lg border border-black/10 p-5 dark:border-white/10">
+          <p class="mb-2 text-sm font-semibold text-black dark:text-white">Infrastructure automation</p>
+          <p class="text-sm">Terraform, Ansible, GitOps, CI/CD, bare-metal provisioning, and repeatable delivery.</p>
+        </div>
+        <div class="rounded-lg border border-black/10 p-5 dark:border-white/10">
+          <p class="mb-2 text-sm font-semibold text-black dark:text-white">Secure systems</p>
+          <p class="text-sm">Identity, PKI, secrets delivery, observability, storage, and disaster recovery.</p>
+        </div>
       </section>
 
       <section class="animate space-y-6">
