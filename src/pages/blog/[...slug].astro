@@ -1,25 +1,36 @@
 ---
 import { type CollectionEntry, getCollection } from "astro:content";
 import PageLayout from "@layouts/PageLayout.astro";
-import Container from "@components/Container.astro";
 import FormattedDate from "@components/FormattedDate.astro";
 import { readingTime } from "@lib/utils";
 import BackToPrev from "@components/BackToPrev.astro";
 import { SITE } from "@consts";
+import { getSpaces } from "@lib/spaces";
 
 export async function getStaticPaths() {
   const posts = (await getCollection("blog"))
     .filter(post => !post.data.draft)
     .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
-  return posts.map((post) => ({
+
+  return posts.map((post, index) => ({
     params: { slug: post.slug },
-    props: post,
+    props: {
+      post,
+      newerPost: posts[index - 1],
+      olderPost: posts[index + 1],
+    },
   }));
 }
-type Props = CollectionEntry<"blog">;
+type Props = {
+  post: CollectionEntry<"blog">;
+  newerPost?: CollectionEntry<"blog">;
+  olderPost?: CollectionEntry<"blog">;
+};
 
-const post = Astro.props;
-const { Content } = await post.render();
+const { post, newerPost, olderPost } = Astro.props;
+const { Content, headings } = await post.render();
+const spaces = getSpaces(post.data.spaces);
+const toc = headings.filter(heading => heading.depth >= 2 && heading.depth <= 3);
 
 const ogImage = `/og/${post.slug}.png`;
 
@@ -54,41 +65,161 @@ const articleSchema = {
   image={ogImage}
   structuredData={articleSchema}
 >
-  <Container>
+  <div class="mx-auto max-w-screen-md px-5">
     <div class="animate">
       <BackToPrev href="/blog">
         Back to blog
       </BackToPrev>
     </div>
-    <div class="space-y-1 my-10">
-      <div class="animate flex items-center gap-1.5">
-        <div class="font-base text-sm">
+
+    <section class="my-10 space-y-5 text-center">
+      <div class="animate space-y-3">
+        <h1 id="post-title" class="text-balance text-3xl font-semibold leading-tight tracking-tight text-black dark:text-white sm:text-4xl">
+          {post.data.title}
+        </h1>
+        <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-black/55 dark:text-white/60">
           <FormattedDate date={post.data.date} />
-        </div>
-        &bull;
-        <div class="font-base text-sm">
-          {readingTime(post.body)}
-        </div>
-        &bull;
-        <div class="font-base text-sm">
-          By {SITE.NAME}
+          <span>&bull;</span>
+          <span>{readingTime(post.body)}</span>
+          <span>&bull;</span>
+          <span>{SITE.NAME}</span>
         </div>
       </div>
-      <div class="animate text-2xl font-semibold text-black dark:text-white">
-        {post.data.title}
-      </div>
-      {post.data.tags && post.data.tags.length > 0 && (
-        <ul class="animate flex flex-wrap gap-2 pt-2">
-          {post.data.tags.map((tag) => (
-            <li class="text-xs px-2 py-1 rounded-full border border-black/15 dark:border-white/20 opacity-75">
-              {tag}
+
+      {spaces.length > 0 && (
+        <ul class="animate flex flex-wrap justify-center gap-2">
+          {spaces.map((space) => (
+            <li>
+              <a href={`/spaces/${space.slug}`} title={space.description} class="group inline-flex items-center gap-1.5 rounded-md border border-black/10 bg-black/[0.02] px-2 py-1 text-xs text-black/60 no-underline transition hover:border-[#1D88B5]/40 hover:bg-[#1D88B5]/5 hover:text-black dark:border-white/10 dark:bg-white/[0.03] dark:text-white/65 dark:hover:text-white">
+                <svg class="size-3 text-[#1D88B5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="4" x2="20" y1="9" y2="9" />
+                  <line x1="4" x2="20" y1="15" y2="15" />
+                  <line x1="10" x2="8" y1="3" y2="21" />
+                  <line x1="16" x2="14" y1="3" y2="21" />
+                </svg>
+                <span>{space.name}</span>
+              </a>
             </li>
           ))}
         </ul>
       )}
+    </section>
+
+    {toc.length >= 3 && (
+      <details class="animate mb-8 rounded-lg border border-black/10 bg-white dark:border-white/10 dark:bg-white/[0.03] lg:hidden">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-black dark:text-white">
+          Table of Contents
+        </summary>
+        <ol class="space-y-2 px-4 pb-4 text-sm">
+          {toc.map((heading) => (
+            <li class={heading.depth === 3 ? "pl-4" : ""}>
+              <a href={`#${heading.slug}`} class="text-black/55 no-underline transition hover:text-black dark:text-white/60 dark:hover:text-white">
+                {heading.text}
+              </a>
+            </li>
+          ))}
+        </ol>
+      </details>
+    )}
+
+    <div class="relative">
+      <aside class="animate absolute -left-60 bottom-0 top-0 hidden w-48 lg:block">
+        {toc.length >= 3 && (
+          <nav class="sticky top-28 max-h-[calc(100vh-8rem)] overflow-y-auto pr-2 text-sm" aria-label="Table of contents">
+            <div class="mb-3 font-medium text-black dark:text-white">Table of Contents</div>
+            <ol class="space-y-2 border-l border-black/10 pl-4 dark:border-white/10">
+              {toc.map((heading) => (
+                <li class={heading.depth === 3 ? "pl-4 text-xs" : ""}>
+                  <a href={`#${heading.slug}`} data-toc-link={heading.slug} class="toc-link block border-l-2 border-transparent py-0.5 pl-3 -ml-[17px] text-black/45 no-underline transition-colors duration-200 ease-out hover:border-[#1D88B5]/40 hover:text-black dark:text-white/45 dark:hover:border-[#1D88B5]/40 dark:hover:text-white">
+                    {heading.text}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
+      </aside>
+
+      <article class="animate">
+        <Content />
+      </article>
     </div>
-    <article class="animate">
-      <Content />
-    </article>
-  </Container>
+
+    {(olderPost || newerPost) && (
+      <nav class="animate mt-12 grid gap-3 border-t border-black/10 pt-6 dark:border-white/10 sm:grid-cols-2" aria-label="Post navigation">
+        {olderPost ? (
+          <a href={`/blog/${olderPost.slug}`} class="group rounded-lg border border-black/10 bg-black/[0.02] p-4 no-underline transition hover:border-[#1D88B5]/35 hover:bg-[#1D88B5]/5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div class="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-black/45 dark:text-white/45">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4 fill-none stroke-current stroke-2">
+                <line x1="5" y1="12" x2="19" y2="12" class="translate-x-2 scale-x-0 transition-transform duration-300 ease-in-out group-hover:translate-x-0 group-hover:scale-x-100" />
+                <polyline points="12 5 5 12 12 19" class="translate-x-1 transition-transform duration-300 ease-in-out group-hover:translate-x-0" />
+              </svg>
+              <span>Previous</span>
+            </div>
+            <div class="line-clamp-2 text-sm font-medium text-black transition group-hover:text-[#1D88B5] dark:text-white">
+              {olderPost.data.title}
+            </div>
+          </a>
+        ) : <div class="hidden sm:block" />}
+
+        {newerPost ? (
+          <a href={`/blog/${newerPost.slug}`} class="group rounded-lg border border-black/10 bg-black/[0.02] p-4 text-left no-underline transition hover:border-[#1D88B5]/35 hover:bg-[#1D88B5]/5 dark:border-white/10 dark:bg-white/[0.03] sm:text-right">
+            <div class="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-black/45 dark:text-white/45 sm:justify-end">
+              <span>Next</span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-4 fill-none stroke-current stroke-2">
+                <line x1="5" y1="12" x2="19" y2="12" class="-translate-x-2 scale-x-0 transition-transform duration-300 ease-in-out group-hover:translate-x-0 group-hover:scale-x-100" />
+                <polyline points="12 5 19 12 12 19" class="-translate-x-1 transition-transform duration-300 ease-in-out group-hover:translate-x-0" />
+              </svg>
+            </div>
+            <div class="line-clamp-2 text-sm font-medium text-black transition group-hover:text-[#1D88B5] dark:text-white">
+              {newerPost.data.title}
+            </div>
+          </a>
+        ) : <div class="hidden sm:block" />}
+      </nav>
+    )}
+  </div>
 </PageLayout>
+
+<script>
+  const initToc = () => {
+    const win = window as Window & { cleanupToc?: () => void };
+    win.cleanupToc?.();
+
+    requestAnimationFrame(() => {
+      const tocLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-toc-link]"));
+      const tocHeadings = tocLinks
+        .map((link) => document.getElementById(link.dataset.tocLink ?? ""))
+        .filter((heading): heading is HTMLElement => Boolean(heading));
+
+      const setActiveTocLink = () => {
+        if (tocLinks.length === 0 || tocHeadings.length === 0) return;
+
+        const activeHeading = [...tocHeadings]
+          .reverse()
+          .find((heading) => heading.getBoundingClientRect().top <= 140) ?? tocHeadings[0];
+
+        tocLinks.forEach((link) => {
+          const active = link.dataset.tocLink === activeHeading.id;
+          link.classList.toggle("is-active", active);
+        });
+      };
+
+      setActiveTocLink();
+      window.addEventListener("scroll", setActiveTocLink, { passive: true });
+      window.addEventListener("resize", setActiveTocLink);
+      win.cleanupToc = () => {
+        window.removeEventListener("scroll", setActiveTocLink);
+        window.removeEventListener("resize", setActiveTocLink);
+      };
+    });
+  };
+
+  document.addEventListener("astro:page-load", initToc);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initToc, { once: true });
+  } else {
+    initToc();
+  }
+</script>
