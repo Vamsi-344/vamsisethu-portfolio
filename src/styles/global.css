@@ -66,8 +66,12 @@ article {
     @apply rounded border border-black/10 bg-black/[0.04] px-1 py-0.5 text-[0.85em] font-normal text-black/75 before:content-none after:content-none dark:border-white/10 dark:bg-white/[0.06] dark:text-white/80;
   }
 
+  .toc-link {
+    @apply transition-[border-color,color,background-color] duration-200 ease-out;
+  }
+
   .toc-link.is-active {
-    @apply border-[#1D88B5] font-medium text-black dark:text-white;
+    @apply border-[#1D88B5] text-black dark:text-white;
   }
 }
 
