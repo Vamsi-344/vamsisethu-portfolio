@@ -42,7 +42,7 @@ export function dateRange(startDate: Date, endDate?: Date | string): string {
   if (endDate) {
     if (typeof endDate === "string") {
       endMonth = "";
-      endYear = endDate;
+      endYear = endDate === "Current" ? "Present" : endDate;
     } else {
       endMonth = endDate.toLocaleString("default", { month: "short" });
       endYear = endDate.getFullYear().toString();
