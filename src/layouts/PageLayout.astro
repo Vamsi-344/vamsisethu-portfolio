@@ -21,8 +21,11 @@ const { title, description, image, structuredData } = Astro.props;
     <Head title={`${title} | ${SITE.NAME}`} description={description} image={image} structuredData={structuredData} />
   </head>
   <body>
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:left-5 focus:top-5 focus:z-[100] focus:rounded-md focus:bg-black focus:px-3 focus:py-2 focus:text-sm focus:text-white focus:no-underline dark:focus:bg-white dark:focus:text-black">
+      Skip to content
+    </a>
     <Header />
-    <main>
+    <main id="main-content" tabindex="-1" class="focus:outline-none">
       <slot />
     </main>
     <Footer />
