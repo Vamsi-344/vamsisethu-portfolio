@@ -2,6 +2,8 @@
 title: "Turning a Linux Laptop into a Cloud Gaming Server with Sunshine & Moonlight"
 description: "How I set up game streaming from my GTX 1650 laptop running Pop!_OS to any device using Sunshine, Moonlight, and Tailscale — including fixing NVIDIA Optimus encoding issues and optimizing for quality."
 date: "Aug 18 2026"
+spaces:
+  - homelab
 ---
 
 I wanted to play games on my MacBook without it melting, so I turned my GTX 1650 laptop running Pop!_OS into a personal cloud gaming server. The idea is simple — run games on the powerful GPU laptop, stream the video to any client device over the network. This post covers the full setup, the problems I hit, and how I solved them.

@@ -2,6 +2,10 @@
 title: "Kubernetes and OpenStack Platform"
 description: "A highly available Kubernetes platform supporting containers and VM-as-a-Service patterns."
 date: "Aug 05 2026"
+spaces:
+  - kubernetes
+  - observability
+  - aws-cloud
 ---
 
 Built a highly available Kubernetes platform with three master nodes, worker

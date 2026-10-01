@@ -2,6 +2,10 @@
 title: "Canonical JAAS Edge POC — Managing Multi-Site Infrastructure with Juju at Scale"
 description: "A deep-dive into our Proof of Concept evaluating Canonical's JAAS (Juju-as-a-Service) for managing edge Kubernetes clusters from a central AWS EKS control plane, covering architecture, setup, findings, and production considerations."
 date: "Jul 21 2026"
+spaces:
+  - kubernetes
+  - aws-cloud
+  - homelab
 ---
 
 This post documents our Proof of Concept (POC) evaluating Canonical's JAAS (Juju-as-a-Service) ecosystem for managing distributed infrastructure — specifically, connecting edge Juju controllers to a central management plane running on AWS EKS, with connectivity provided by Tailscale.

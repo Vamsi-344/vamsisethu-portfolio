@@ -5,6 +5,7 @@ import PageLayout from "@layouts/PageLayout.astro";
 import ArrowCard from "@components/ArrowCard.astro";
 import Link from "@components/Link.astro";
 import { dateRange } from "@lib/utils";
+import { SPACES as spaces, iconify } from "@lib/spaces";
 import { SITE, HOME, SOCIALS } from "@consts";
 
 const allBlog = (await getCollection("blog"))
@@ -29,17 +30,6 @@ const work = await Promise.all(
     return { ...item, Content };
   })
 );
-
-const iconify = (name: string) => `https://api.iconify.design/${name}.svg?color=%231D88B5`;
-
-const spaces = [
-  { name: "Kubernetes", logo: iconify("simple-icons:kubernetes") },
-  { name: "GitOps", logo: iconify("simple-icons:argo") },
-  { name: "AWS", logo: iconify("simple-icons:amazonwebservices") },
-  { name: "Observability", logo: iconify("lucide:chart-no-axes-combined") },
-  { name: "Security", logo: iconify("lucide:shield-check") },
-  { name: "Homelab", logo: iconify("lucide:server") },
-];
 
 const techRows = [
   [
@@ -164,16 +154,19 @@ const personSchema = {
         <div class="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 class="font-semibold text-black dark:text-white">Spaces</h2>
-            <p class="mt-1 text-sm text-black/50 dark:text-white/55">Domain pages for articles and projects are coming next.</p>
+            <p class="mt-1 text-sm text-black/50 dark:text-white/55">Browse articles and projects by technical domain.</p>
           </div>
+          <Link href="/spaces">See all spaces</Link>
         </div>
         <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {spaces.map(space => (
-            <li class="flex items-center gap-3 rounded-lg border border-black/10 bg-white px-4 py-3 text-sm dark:border-white/10 dark:bg-white/[0.03]">
-              <span class="flex size-8 items-center justify-center rounded-full bg-[#1D88B5]/10 p-1.5 ring-1 ring-[#1D88B5]/10 dark:bg-[#1D88B5]/15 dark:ring-[#1D88B5]/20" aria-hidden="true">
-                <img src={space.logo} alt="" class="size-full object-contain" loading="lazy" decoding="async" />
-              </span>
-              <span class="font-medium text-black dark:text-white">{space.name}</span>
+            <li>
+              <a href={`/spaces/${space.slug}`} class="flex items-center gap-3 rounded-lg border border-black/10 bg-white px-4 py-3 text-sm no-underline transition hover:border-black/25 hover:text-black dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/25 dark:hover:text-white">
+                <span class="flex size-8 items-center justify-center rounded-full bg-[#1D88B5]/10 p-1.5 ring-1 ring-[#1D88B5]/10 dark:bg-[#1D88B5]/15 dark:ring-[#1D88B5]/20" aria-hidden="true">
+                  <img src={space.logo} alt="" class="size-full object-contain" loading="lazy" decoding="async" />
+                </span>
+                <span class="font-medium text-black dark:text-white">{space.name}</span>
+              </a>
             </li>
           ))}
         </ul>

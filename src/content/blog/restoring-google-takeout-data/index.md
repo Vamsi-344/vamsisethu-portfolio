@@ -2,6 +2,8 @@
 title: "Restoring Google Takeout Data Back to Google Services — The Complete Guide"
 description: "How I uploaded ~25GB of Google Takeout data (Drive + Photos) back to Google services with correct dates, GPS metadata, and album structure preserved using CLI tools."
 date: "Aug 08 2026"
+spaces:
+  - homelab
 ---
 
 I recently needed to restore my Google Takeout export back to Google services. What sounds simple — "just upload it back" — turned into a full-day adventure involving metadata preservation, EXIF manipulation, and OAuth API configuration. Here's everything I learned.

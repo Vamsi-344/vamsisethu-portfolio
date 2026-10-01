@@ -1,0 +1,63 @@
+---
+import { getCollection } from "astro:content";
+import Container from "@components/Container.astro";
+import PageLayout from "@layouts/PageLayout.astro";
+import Link from "@components/Link.astro";
+import { SPACES } from "@lib/spaces";
+
+const posts = (await getCollection("blog")).filter(post => !post.data.draft);
+const projects = (await getCollection("projects")).filter(project => !project.data.draft);
+
+const spaces = SPACES.map(space => ({
+  ...space,
+  postCount: posts.filter(post => post.data.spaces?.includes(space.slug)).length,
+  projectCount: projects.filter(project => project.data.spaces?.includes(space.slug)).length,
+}));
+---
+
+<PageLayout title="Spaces" description="Browse Vamsi Krishna Sethu's articles and projects by technical domain: Kubernetes, GitOps, AWS, observability, security, and homelab infrastructure.">
+  <Container>
+    <div class="space-y-10">
+      <section class="animate space-y-4">
+        <div class="text-sm text-black/55 dark:text-white/55">
+          Articles and projects by domain
+        </div>
+        <h1 class="text-4xl font-semibold tracking-tight text-black dark:text-white sm:text-5xl">
+          Spaces
+        </h1>
+        <article class="max-w-2xl text-lg leading-8">
+          <p>
+            A map of the technical areas I write and build around — from Kubernetes and GitOps to security, observability, cloud, and homelab infrastructure.
+          </p>
+        </article>
+      </section>
+
+      <section class="animate">
+        <ul class="grid gap-4 sm:grid-cols-2">
+          {spaces.map(space => (
+            <li>
+              <a href={`/spaces/${space.slug}`} class="block h-full rounded-xl border border-black/10 bg-white p-5 no-underline transition hover:-translate-y-0.5 hover:border-black/25 hover:text-black dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/25 dark:hover:text-white">
+                <div class="flex items-start gap-4">
+                  <span class="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#1D88B5]/10 ring-1 ring-[#1D88B5]/10 dark:bg-[#1D88B5]/15 dark:ring-[#1D88B5]/20" aria-hidden="true">
+                    <img src={space.logo} alt="" class="size-6 object-contain" loading="lazy" decoding="async" />
+                  </span>
+                  <div>
+                    <h2 class="font-semibold text-black dark:text-white">{space.name}</h2>
+                    <p class="mt-2 text-sm leading-6 text-black/55 dark:text-white/60">{space.description}</p>
+                    <p class="mt-4 text-sm text-black/45 dark:text-white/45">
+                      {space.postCount} post{space.postCount === 1 ? "" : "s"} · {space.projectCount} project{space.projectCount === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <div class="animate">
+        <Link href="/">Back home</Link>
+      </div>
+    </div>
+  </Container>
+</PageLayout>
