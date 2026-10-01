@@ -2,6 +2,9 @@
 title: "Cloud-Native Storage and Observability"
 description: "Rook Ceph, NooBaa, Prometheus, Grafana, and telemetry APIs for infrastructure visibility."
 date: "Aug 04 2026"
+spaces:
+  - kubernetes
+  - observability
 ---
 
 Deployed multi-site Rook Ceph clusters across production Kubernetes environments

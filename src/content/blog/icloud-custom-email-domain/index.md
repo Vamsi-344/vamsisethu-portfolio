@@ -2,6 +2,8 @@
 title: "A Custom Domain Email I Already Paid For: iCloud+ + Hostinger"
 description: "I thought a professional you@yourdomain.com meant buying email hosting at my registrar. Turns out my existing iCloud+ 50GB plan already included it. Here is the full setup on Hostinger DNS."
 date: "Sep 20 2026"
+spaces:
+  - homelab
 ---
 
 For the longest time I assumed that getting a proper `hello@vamsisethu.com`

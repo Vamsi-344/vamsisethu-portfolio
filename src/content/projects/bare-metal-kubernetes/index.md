@@ -2,6 +2,10 @@
 title: "Bare-Metal Kubernetes Provisioning"
 description: "Repeatable cluster provisioning with iLO, Netplan, Ansible, Tekton, and Kubespray."
 date: "Aug 06 2026"
+spaces:
+  - kubernetes
+  - gitops
+  - homelab
 ---
 
 Built a provisioning workflow for production-grade bare-metal Kubernetes clusters.
