@@ -7,19 +7,21 @@ import Link from "@components/Link.astro";
 import { dateRange } from "@lib/utils";
 import { SITE, HOME, SOCIALS } from "@consts";
 
-const blog = (await getCollection("blog"))
+const allBlog = (await getCollection("blog"))
   .filter(post => !post.data.draft)
-  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
-  .slice(0,SITE.NUM_POSTS_ON_HOMEPAGE);
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
-const projects = (await getCollection("projects"))
+const blog = allBlog.slice(0, SITE.NUM_POSTS_ON_HOMEPAGE);
+
+const allProjects = (await getCollection("projects"))
   .filter(project => !project.data.draft)
-  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
-  .slice(0,SITE.NUM_PROJECTS_ON_HOMEPAGE);
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const projects = allProjects.slice(0, SITE.NUM_PROJECTS_ON_HOMEPAGE);
 
 const allwork = (await getCollection("work"))
   .sort((a, b) => new Date(b.data.dateStart).valueOf() - new Date(a.data.dateStart).valueOf())
-  .slice(0,SITE.NUM_WORKS_ON_HOMEPAGE);
+  .slice(0, SITE.NUM_WORKS_ON_HOMEPAGE);
 
 const work = await Promise.all(
   allwork.map(async (item) => {
@@ -27,6 +29,44 @@ const work = await Promise.all(
     return { ...item, Content };
   })
 );
+
+const iconify = (name: string) => `https://api.iconify.design/${name}.svg?color=%231D88B5`;
+
+const spaces = [
+  { name: "Kubernetes", logo: iconify("simple-icons:kubernetes") },
+  { name: "GitOps", logo: iconify("simple-icons:argo") },
+  { name: "AWS", logo: iconify("simple-icons:amazonwebservices") },
+  { name: "Observability", logo: iconify("lucide:chart-no-axes-combined") },
+  { name: "Security", logo: iconify("lucide:shield-check") },
+  { name: "Homelab", logo: iconify("lucide:server") },
+];
+
+const techRows = [
+  [
+    { name: "Kubernetes", logo: iconify("simple-icons:kubernetes") },
+    { name: "Rancher", logo: iconify("simple-icons:rancher") },
+    { name: "RKE2", logo: iconify("simple-icons:rancher") },
+    { name: "OpenShift", logo: iconify("simple-icons:redhatopenshift") },
+    { name: "Docker", logo: iconify("simple-icons:docker") },
+    { name: "Linux", logo: iconify("simple-icons:linux") },
+  ],
+  [
+    { name: "Terraform", logo: iconify("simple-icons:terraform") },
+    { name: "Ansible", logo: iconify("simple-icons:ansible") },
+    { name: "Argo CD", logo: iconify("simple-icons:argo") },
+    { name: "GitHub Actions", logo: iconify("simple-icons:githubactions") },
+    { name: "Helm", logo: iconify("simple-icons:helm") },
+    { name: "Tekton", logo: iconify("simple-icons:tekton") },
+  ],
+  [
+    { name: "OpenStack", logo: iconify("simple-icons:openstack") },
+    { name: "AWS", logo: iconify("simple-icons:amazonwebservices") },
+    { name: "Prometheus", logo: iconify("simple-icons:prometheus") },
+    { name: "Grafana", logo: iconify("simple-icons:grafana") },
+    { name: "Ceph", logo: iconify("simple-icons:ceph") },
+    { name: "PostgreSQL", logo: iconify("simple-icons:postgresql") },
+  ],
+];
 
 const siteURL = Astro.site?.toString() ?? "https://www.vamsisethu.com/";
 
@@ -64,30 +104,32 @@ const personSchema = {
     "AI Infrastructure",
   ],
 };
-
 ---
 
 <PageLayout title={HOME.TITLE} description={HOME.DESCRIPTION} structuredData={personSchema}>
   <Container>
     <div class="space-y-16">
       <section class="animate space-y-6">
-        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-orange-700 dark:text-orange-300">
-          Platform engineering · SRE · AI infrastructure
+        <p class="text-sm text-black/55 dark:text-white/55">
+          Hi, I'm Vamsi — Software Engineer · SRE · CNCF Kubestronaut
         </p>
         <h1 class="max-w-3xl text-4xl font-semibold tracking-tight text-black dark:text-white sm:text-5xl">
-          I build reliable platforms for difficult workloads.
+          I build Kubernetes and cloud platforms that are easier to operate.
         </h1>
-        <article class="max-w-3xl space-y-4">
+        <article class="max-w-2xl space-y-4 text-lg leading-8">
           <p>
-            I'm Vamsi Krishna Sethu, a Software Engineer and <Link href="https://www.credly.com/badges/7d557f73-f029-4d2c-9aef-f8a47a3b97fc/public_url" external aria-label="Verify Kubestronaut credential on Credly">CNCF Kubestronaut</Link> working across the stack — from bare metal and private cloud to Kubernetes, AWS, and GitOps.
+            I work across bare metal, private cloud, AWS, GitOps, and observability — designing the automation, identity, and recovery paths that keep infrastructure repeatable in production.
           </p>
           <p>
-            I design the automation, identity, observability, and recovery paths that make infrastructure repeatable in production. Right now, I build multi-cluster platforms with Rancher and Argo CD Agent for inference-as-a-service.
+            This portfolio collects selected projects, technical notes, certifications, and the systems thinking behind my work.
           </p>
         </article>
-        <div class="flex flex-wrap gap-3 pt-2">
+        <div class="flex flex-wrap gap-3 pt-1">
           <Link href="/projects" class="rounded-md bg-black px-4 py-2 text-sm text-white no-underline transition hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80">
-            Explore my work
+            Explore projects
+          </Link>
+          <Link href="/blog" class="rounded-md border border-black/15 px-4 py-2 text-sm no-underline transition hover:border-black/40 dark:border-white/20 dark:hover:border-white/50">
+            Read writing
           </Link>
           <Link href="/Vamsi_Krishna_Sethu_Resume.pdf" class="rounded-md border border-black/15 px-4 py-2 text-sm no-underline transition hover:border-black/40 dark:border-white/20 dark:hover:border-white/50">
             View resume
@@ -95,31 +137,79 @@ const personSchema = {
         </div>
       </section>
 
-      <section class="grid gap-4 sm:grid-cols-3" aria-label="Areas of focus">
-        <div class="rounded-lg border border-black/10 p-5 dark:border-white/10">
-          <p class="mb-2 text-sm font-semibold text-black dark:text-white">Platform reliability</p>
-          <p class="text-sm">Kubernetes, Rancher, RKE2, OpenShift, OpenStack, and production operations.</p>
+      <section class="animate overflow-hidden rounded-xl border border-black/10 bg-white dark:border-white/10 dark:bg-white/[0.03]" aria-label="Areas of focus">
+        <div class="border-b border-black/10 bg-black/[0.025] px-5 py-4 dark:border-white/10 dark:bg-white/[0.04]">
+          <h2 class="font-semibold text-black dark:text-white">What I work on</h2>
+          <p class="mt-1 text-sm leading-6 text-black/55 dark:text-white/60">
+            Cloud-native platforms, automation, and the operational details that make systems easier to run.
+          </p>
         </div>
-        <div class="rounded-lg border border-black/10 p-5 dark:border-white/10">
-          <p class="mb-2 text-sm font-semibold text-black dark:text-white">Infrastructure automation</p>
-          <p class="text-sm">Terraform, Ansible, GitOps, CI/CD, bare-metal provisioning, and repeatable delivery.</p>
-        </div>
-        <div class="rounded-lg border border-black/10 p-5 dark:border-white/10">
-          <p class="mb-2 text-sm font-semibold text-black dark:text-white">Secure systems</p>
-          <p class="text-sm">Identity, PKI, secrets delivery, observability, storage, and disaster recovery.</p>
+        <div class="grid divide-y divide-black/10 dark:divide-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div class="p-5">
+            <p class="mb-2 text-sm font-semibold text-black dark:text-white">Platform reliability</p>
+            <p class="text-sm leading-6">Kubernetes, Rancher, RKE2, OpenShift, OpenStack, and production operations.</p>
+          </div>
+          <div class="p-5">
+            <p class="mb-2 text-sm font-semibold text-black dark:text-white">Infrastructure automation</p>
+            <p class="text-sm leading-6">Terraform, Ansible, GitOps, CI/CD, bare-metal provisioning, and repeatable delivery.</p>
+          </div>
+          <div class="p-5">
+            <p class="mb-2 text-sm font-semibold text-black dark:text-white">Secure systems</p>
+            <p class="text-sm leading-6">Identity, PKI, secrets delivery, observability, storage, and disaster recovery.</p>
+          </div>
         </div>
       </section>
 
-      <section class="animate space-y-6">
-        <div class="flex flex-wrap gap-y-2 items-center justify-between">
-          <h5 class="font-semibold text-black dark:text-white">
-            Latest posts
-          </h5>
-          <Link href="/blog">
-            See all posts
-          </Link>
+      <section class="animate space-y-5">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 class="font-semibold text-black dark:text-white">Spaces</h2>
+            <p class="mt-1 text-sm text-black/50 dark:text-white/55">Domain pages for articles and projects are coming next.</p>
+          </div>
         </div>
-        <ul class="flex flex-col gap-4">
+        <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {spaces.map(space => (
+            <li class="flex items-center gap-3 rounded-lg border border-black/10 bg-white px-4 py-3 text-sm dark:border-white/10 dark:bg-white/[0.03]">
+              <span class="flex size-8 items-center justify-center rounded-full bg-[#1D88B5]/10 p-1.5 ring-1 ring-[#1D88B5]/10 dark:bg-[#1D88B5]/15 dark:ring-[#1D88B5]/20" aria-hidden="true">
+                <img src={space.logo} alt="" class="size-full object-contain" loading="lazy" decoding="async" />
+              </span>
+              <span class="font-medium text-black dark:text-white">{space.name}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section class="animate space-y-5 overflow-hidden">
+        <div>
+          <h2 class="font-semibold text-black dark:text-white">Skills & Technologies</h2>
+          <p class="mt-1 text-sm text-black/50 dark:text-white/55">Technologies and tools I work with.</p>
+        </div>
+        <div class="relative -mx-5 space-y-2 px-5 sm:mx-0 sm:px-0">
+          <div class="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#f8f6f1] to-transparent dark:from-[#10100f]"></div>
+          <div class="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#f8f6f1] to-transparent dark:from-[#10100f]"></div>
+          {techRows.map((row, index) => (
+            <div class="tech-marquee overflow-hidden py-1" data-direction={index % 2 === 0 ? "normal" : "reverse"}>
+              <div class="tech-marquee-track flex w-max gap-3">
+                {[...row, ...row, ...row].map(technology => (
+                  <div class="flex items-center gap-3 rounded-full border border-black/10 bg-white px-3 py-2 text-sm shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+                    <span class="flex size-8 items-center justify-center rounded-full bg-[#1D88B5]/10 p-1.5 ring-1 ring-[#1D88B5]/10 dark:bg-[#1D88B5]/15 dark:ring-[#1D88B5]/20">
+                      <img src={technology.logo} alt="" class="size-full object-contain" loading="lazy" decoding="async" />
+                    </span>
+                    <span class="font-medium text-black dark:text-white">{technology.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section class="animate space-y-5">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <h2 class="font-semibold text-black dark:text-white">Latest posts</h2>
+          <Link href="/blog">See all posts</Link>
+        </div>
+        <ul class="flex flex-col gap-3">
           {blog.map(post => (
             <li>
               <ArrowCard entry={post} />
@@ -128,45 +218,12 @@ const personSchema = {
         </ul>
       </section>
 
-      <section class="animate space-y-6">
-        <div class="flex flex-wrap gap-y-2 items-center justify-between">
-          <h5 class="font-semibold text-black dark:text-white">
-            Work Experience
-          </h5>
-          <Link href="/work">
-            See all work
-          </Link>
+      <section class="animate space-y-5">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <h2 class="font-semibold text-black dark:text-white">Recent projects</h2>
+          <Link href="/projects">See all projects</Link>
         </div>
-        <ul class="flex flex-col space-y-4">
-          {work.map(entry => (
-            <li>
-              <div class="text-sm opacity-75">
-                {dateRange(entry.data.dateStart, entry.data.dateEnd)}
-              </div>
-              <div class="font-semibold text-black dark:text-white">
-                {entry.data.company}
-              </div>
-              <div class="text-sm opacity-75">
-                {entry.data.role}
-              </div>
-              <article>
-                <entry.Content />
-              </article>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section class="animate space-y-6">
-        <div class="flex flex-wrap gap-y-2 items-center justify-between">
-          <h5 class="font-semibold text-black dark:text-white">
-            Recent projects
-          </h5>
-          <Link href="/projects">
-            See all projects
-          </Link>
-        </div>
-        <ul class="flex flex-col gap-4">
+        <ul class="flex flex-col gap-3">
           {projects.map(project => (
             <li>
               <ArrowCard entry={project} />
@@ -175,10 +232,37 @@ const personSchema = {
         </ul>
       </section>
 
-      <section class="animate space-y-4">
-        <h5 class="font-semibold text-black dark:text-white">
-          Let's Connect
-        </h5>
+      <section class="animate space-y-6">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <h2 class="font-semibold text-black dark:text-white">Work Experience</h2>
+          <Link href="/work">See all work</Link>
+        </div>
+        <ol class="relative space-y-8 border-l border-black/10 pl-6 dark:border-white/10">
+          {work.map(entry => {
+            const isCurrent = entry.data.dateEnd === "Current";
+            return (
+            <li class={`relative rounded-lg ${isCurrent ? "border border-[#1D88B5]/20 bg-[#1D88B5]/[0.04] p-4 -ml-4" : ""}`}>
+              <span class={`absolute top-5 size-3 rounded-full border ${isCurrent ? "-left-[1.85rem] border-[#1D88B5] bg-[#1D88B5]" : "-left-[1.85rem] border-black/20 bg-[#f8f6f1] dark:border-white/20 dark:bg-[#10100f]"}`}></span>
+              <div class="text-sm opacity-75">
+                {dateRange(entry.data.dateStart, entry.data.dateEnd)}
+              </div>
+              <div class="mt-1 font-semibold text-black dark:text-white">
+                {entry.data.company}
+              </div>
+              <div class="text-sm opacity-75">
+                {entry.data.role}
+              </div>
+              <article class="mt-3">
+                <entry.Content />
+              </article>
+            </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      <section class="animate space-y-4 border-t border-black/10 pt-8 dark:border-white/10">
+        <h2 class="font-semibold text-black dark:text-white">Let's Connect</h2>
         <article>
           <p>
             Reach out if you want to talk about Kubernetes platforms, DevOps, SRE,
@@ -188,7 +272,7 @@ const personSchema = {
         <ul class="flex flex-wrap gap-2">
           {SOCIALS.map(SOCIAL => (
             <li class="flex gap-x-2 text-nowrap">
-              <Link href={SOCIAL.HREF} external aria-label={`${SITE.NAME} on ${SOCIAL.NAME}`}>
+              <Link href={SOCIAL.HREF} external={SOCIAL.HREF.startsWith("http")} aria-label={`${SITE.NAME} on ${SOCIAL.NAME}`}>
                 {SOCIAL.NAME}
               </Link>
               {"/"}
@@ -204,3 +288,27 @@ const personSchema = {
     </div>
   </Container>
 </PageLayout>
+
+<style>
+  .tech-marquee-track {
+    animation: tech-marquee 38s linear infinite;
+  }
+
+  .tech-marquee[data-direction="reverse"] .tech-marquee-track {
+    animation-direction: reverse;
+  }
+
+  .tech-marquee:hover .tech-marquee-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes tech-marquee {
+    from {
+      transform: translateX(0);
+    }
+
+    to {
+      transform: translateX(-33.333%);
+    }
+  }
+</style>
