@@ -43,6 +43,10 @@ article {
   @apply prose-headings:text-black prose-headings:dark:text-white;
 }
 
+:focus-visible {
+  @apply outline outline-2 outline-offset-2 outline-[#1D88B5];
+}
+
 @layer utilities {
   article a {
     @apply font-sans text-current underline underline-offset-2;

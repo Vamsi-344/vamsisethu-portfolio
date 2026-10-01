@@ -48,7 +48,7 @@ const { chart } = Astro.props;
   // diagram twice or stack observers/listeners across navigations — that double
   // rendering was the source of the flicker.
   (function () {
-    const MERMAID_SRC = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    const MERMAID_SRC = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
     let mermaidPromise = null;
     let themeObserver = null;
     let currentTheme = null;
@@ -62,22 +62,22 @@ const { chart } = Astro.props;
     }
 
     function getTheme() {
-      return document.documentElement.classList.contains('dark') ? 'dark' : 'default';
+      return document.documentElement.classList.contains("dark") ? "dark" : "default";
     }
 
     async function renderAll(mermaid, { force = false } = {}) {
       const theme = getTheme();
       mermaid.initialize({ startOnLoad: false, theme });
       const nodes = [];
-      document.querySelectorAll('pre.mermaid').forEach((pre) => {
+      document.querySelectorAll("pre.mermaid").forEach((pre) => {
         // Stash the source once so re-renders (theme change) have the original.
         if (pre.dataset.originalChart === undefined) {
           pre.dataset.originalChart = pre.textContent;
         }
         // Only (re)render nodes that haven't been rendered, unless forced.
-        if (force || pre.getAttribute('data-processed') !== 'true') {
+        if (force || pre.getAttribute("data-processed") !== "true") {
           pre.innerHTML = pre.dataset.originalChart;
-          pre.removeAttribute('data-processed');
+          pre.removeAttribute("data-processed");
           nodes.push(pre);
         }
       });
@@ -85,7 +85,7 @@ const { chart } = Astro.props;
         try {
           await mermaid.run({ nodes });
         } catch (e) {
-          console.error('mermaid render error', e);
+          console.error("mermaid render error", e);
         }
       }
     }
@@ -105,18 +105,18 @@ const { chart } = Astro.props;
       });
       themeObserver.observe(document.documentElement, {
         attributes: true,
-        attributeFilter: ['class'],
+        attributeFilter: ["class"],
       });
     }
 
     function setupControls() {
-      document.querySelectorAll('.mermaid-container').forEach((container) => {
-        if (container.dataset.controlsBound === 'true') return; // guard against re-binding
-        container.dataset.controlsBound = 'true';
+      document.querySelectorAll(".mermaid-container").forEach((container) => {
+        if (container.dataset.controlsBound === "true") return; // guard against re-binding
+        container.dataset.controlsBound = "true";
 
         let scale = 1;
-        const canvas = container.querySelector('.mermaid-canvas');
-        const viewport = container.querySelector('.mermaid-viewport');
+        const canvas = container.querySelector(".mermaid-canvas");
+        const viewport = container.querySelector(".mermaid-viewport");
 
         function setScale(newScale) {
           scale = Math.max(0.5, Math.min(3, newScale));
@@ -124,14 +124,14 @@ const { chart } = Astro.props;
           canvas.style.width = `${100 / scale}%`;
         }
 
-        container.querySelector('.mermaid-zoom-in')?.addEventListener('click', () => setScale(scale + 0.25));
-        container.querySelector('.mermaid-zoom-out')?.addEventListener('click', () => setScale(scale - 0.25));
-        container.querySelector('.mermaid-zoom-reset')?.addEventListener('click', () => {
+        container.querySelector(".mermaid-zoom-in")?.addEventListener("click", () => setScale(scale + 0.25));
+        container.querySelector(".mermaid-zoom-out")?.addEventListener("click", () => setScale(scale - 0.25));
+        container.querySelector(".mermaid-zoom-reset")?.addEventListener("click", () => {
           setScale(1);
           viewport.scrollTo(0, 0);
         });
 
-        viewport?.addEventListener('wheel', (e) => {
+        viewport?.addEventListener("wheel", (e) => {
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             setScale(scale + (e.deltaY > 0 ? -0.1 : 0.1));
@@ -139,14 +139,14 @@ const { chart } = Astro.props;
         }, { passive: false });
 
         let isDragging = false, startX, startY, scrollLeft, scrollTop;
-        viewport?.addEventListener('mousedown', (e) => {
+        viewport?.addEventListener("mousedown", (e) => {
           isDragging = true;
           startX = e.pageX - viewport.offsetLeft;
           startY = e.pageY - viewport.offsetTop;
           scrollLeft = viewport.scrollLeft;
           scrollTop = viewport.scrollTop;
         });
-        viewport?.addEventListener('mousemove', (e) => {
+        viewport?.addEventListener("mousemove", (e) => {
           if (!isDragging) return;
           e.preventDefault();
           const x = e.pageX - viewport.offsetLeft;
@@ -154,24 +154,24 @@ const { chart } = Astro.props;
           viewport.scrollLeft = scrollLeft - (x - startX);
           viewport.scrollTop = scrollTop - (y - startY);
         });
-        document.addEventListener('mouseup', () => { isDragging = false; });
+        document.addEventListener("mouseup", () => { isDragging = false; });
 
-        container.querySelector('.mermaid-fullscreen')?.addEventListener('click', () => {
+        container.querySelector(".mermaid-fullscreen")?.addEventListener("click", () => {
           if (!document.fullscreenElement) {
             container.requestFullscreen();
-            viewport.style.maxHeight = '100vh';
+            viewport.style.maxHeight = "100vh";
           } else {
             document.exitFullscreen();
           }
         });
-        container.addEventListener('fullscreenchange', () => {
-          if (!document.fullscreenElement) viewport.style.maxHeight = '500px';
+        container.addEventListener("fullscreenchange", () => {
+          if (!document.fullscreenElement) viewport.style.maxHeight = "500px";
         });
       });
     }
 
     async function init() {
-      if (!document.querySelector('pre.mermaid')) return; // no diagrams on this page
+      if (!document.querySelector("pre.mermaid")) return; // no diagrams on this page
       const mermaid = await loadMermaid();
       await renderAll(mermaid);
       setupThemeObserver(mermaid);
@@ -180,12 +180,12 @@ const { chart } = Astro.props;
 
     // Tear down the theme observer before a View-Transitions swap so observers
     // don't accumulate across navigations (the other big flicker cause).
-    document.addEventListener('astro:before-swap', () => {
+    document.addEventListener("astro:before-swap", () => {
       if (themeObserver) { themeObserver.disconnect(); themeObserver = null; }
       clearTimeout(debounceTimer);
     });
 
     // Fires on first load and after every View-Transitions navigation.
-    document.addEventListener('astro:page-load', init);
+    document.addEventListener("astro:page-load", init);
   })();
 </script>

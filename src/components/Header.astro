@@ -6,44 +6,44 @@ import { SITE } from "@consts";
 
 <header>
   <Container>
-    <div class="flex flex-wrap gap-y-2 justify-between">
-      <Link href="/" underline={false}>
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+      <Link href="/" underline={false} aria-label={`${SITE.NAME} home`} class="w-fit">
         <div class="font-semibold">
           {SITE.NAME}
         </div>
       </Link>
-      <nav class="flex gap-1">
-        <Link href="/blog">
+      <nav class="flex flex-wrap gap-x-3 gap-y-1 text-sm md:gap-1" aria-label="Primary navigation">
+        <Link href="/blog" class="shrink-0">
           blog
         </Link>
-        <span>
+        <span class="hidden md:inline">
           {`/`}
         </span>
-        <Link href="/spaces">
+        <Link href="/spaces" class="shrink-0">
           spaces
         </Link>
-        <span>
+        <span class="hidden md:inline">
           {`/`}
         </span>
-        <Link href="/work">
+        <Link href="/work" class="shrink-0">
           work
         </Link>
-        <span>
+        <span class="hidden md:inline">
           {`/`}
         </span>
-        <Link href="/projects">
+        <Link href="/projects" class="shrink-0">
           projects
         </Link>
-        <span>
+        <span class="hidden md:inline">
           {`/`}
         </span>
-        <Link href="/certifications">
+        <Link href="/certifications" class="shrink-0">
           certs
         </Link>
-        <span>
+        <span class="hidden md:inline">
           {`/`}
         </span>
-        <Link href="/Vamsi_Krishna_Sethu_Resume.pdf">
+        <Link href="/Vamsi_Krishna_Sethu_Resume.pdf" class="shrink-0">
           resume
         </Link>
       </nav>
