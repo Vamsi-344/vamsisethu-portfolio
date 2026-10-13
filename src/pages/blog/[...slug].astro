@@ -2,6 +2,7 @@
 import { type CollectionEntry, getCollection } from "astro:content";
 import PageLayout from "@layouts/PageLayout.astro";
 import FormattedDate from "@components/FormattedDate.astro";
+import GiscusComments from "@components/GiscusComments.astro";
 import { readingTime } from "@lib/utils";
 import BackToPrev from "@components/BackToPrev.astro";
 import { SITE } from "@consts";
@@ -178,6 +179,8 @@ const articleSchema = {
         ) : <div class="hidden sm:block" />}
       </nav>
     )}
+
+    <GiscusComments />
   </div>
 </PageLayout>
 
