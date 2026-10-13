@@ -86,5 +86,9 @@ export const SOCIALS: Socials = [
   {
     NAME: "resume",
     HREF: "/Vamsi_Krishna_Sethu_Resume.pdf",
+  },
+  {
+    NAME: "rss",
+    HREF: "/rss.xml",
   }
 ];

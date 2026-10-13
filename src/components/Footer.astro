@@ -1,5 +1,6 @@
 ---
 import Container from "@components/Container.astro";
+import Link from "@components/Link.astro";
 import { SITE } from "@consts";
 import BackToTop from "@components/BackToTop.astro";
 ---
@@ -12,8 +13,27 @@ import BackToTop from "@components/BackToTop.astro";
       </div>
     </div>
     <div class="flex justify-between items-center">
-      <div>
-        &copy; 2026 {`|`} {SITE.NAME}
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span>&copy; 2026 {`|`} {SITE.NAME}</span>
+        <span aria-hidden="true">{`/`}</span>
+        <Link href="/rss.xml" aria-label={`${SITE.NAME} RSS feed`}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="mr-1 inline size-3.5 -translate-y-px"
+            aria-hidden="true"
+          >
+            <path d="M4 11a9 9 0 0 1 9 9" />
+            <path d="M4 4a16 16 0 0 1 16 16" />
+            <circle cx="5" cy="19" r="1" />
+          </svg>
+          <span>rss</span>
+        </Link>
       </div>
       <div class="flex flex-wrap gap-1 items-center">
         <button
