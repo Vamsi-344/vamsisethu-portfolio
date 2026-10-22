@@ -9,8 +9,8 @@ export const SITE: Site = {
 };
 
 export const HOME: Metadata = {
-  TITLE: "Home",
-  DESCRIPTION: "Portfolio and technical writing by Vamsi Krishna Sethu — CNCF Kubestronaut and Site Reliability Engineer working across the stack, from bare metal to Kubernetes, GitOps, and cloud infrastructure.",
+  TITLE: "SRE & Platform Engineer",
+  DESCRIPTION: "Portfolio and technical writing by Vamsi Krishna Sethu, CNCF Kubestronaut and Site Reliability Engineer focused on Kubernetes, GitOps, and cloud infrastructure.",
 };
 
 export const BLOG: Metadata = {
