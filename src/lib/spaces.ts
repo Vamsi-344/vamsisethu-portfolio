@@ -2,7 +2,7 @@ export const ACCENT = "#1D88B5";
 export const ENCODED_ACCENT = "%231D88B5";
 
 export const iconify = (name: string) =>
-  `https://api.iconify.design/${name}.svg?color=${ENCODED_ACCENT}`;
+  `https://api.iconify.design/${name.replace(":", "/")}.svg?color=${ENCODED_ACCENT}`;
 
 export type Space = {
   slug: string;
