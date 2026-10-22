@@ -64,6 +64,8 @@ const articleSchema = {
   title={post.data.title}
   description={post.data.description}
   image={ogImage}
+  type="article"
+  publishedTime={post.data.date.toISOString()}
   structuredData={articleSchema}
 >
   <div class="mx-auto max-w-screen-md px-5">
