@@ -81,3 +81,13 @@ Before committing an article:
 8. Commit only the approved article changes.
 
 Publish articles individually. Do not publish drafts, internal runbooks, or provider-specific incident details without explicit sanitization and review.
+
+## SEO and social metadata verification
+
+For public pages, use these as manual review tools:
+
+- [OpenGraph.xyz](https://www.opengraph.xyz/) for Open Graph previews;
+- [Google Rich Results Test](https://search.google.com/test/rich-results) for structured data;
+- Lighthouse or PageSpeed Insights for performance.
+
+Treat external checkers as advisory, not as build dependencies or the source of truth. Before publishing, verify generated HTML locally for canonical URLs, title and description length, OG image dimensions and alt text, JSON-LD, `sitemap-index.xml`, and `robots.txt`. Do not add an X/Twitter account attribution unless the account actually exists.
