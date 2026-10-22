@@ -8,7 +8,9 @@ spaces:
   - homelab
 ---
 
-This post documents our Proof of Concept (POC) evaluating Canonical's JAAS (Juju-as-a-Service) ecosystem for managing distributed infrastructure — specifically, connecting edge Juju controllers to a central management plane running on AWS EKS, with connectivity provided by Tailscale.
+I investigated Canonical's JAAS (Juju-as-a-Service) ecosystem because managing distributed edge infrastructure was becoming a coordination problem, not just a provisioning problem. This post records what I observed in a time-bounded proof of concept: connecting edge Juju controllers to a central management plane running on AWS EKS, with connectivity provided by Tailscale.
+
+The findings are POC results, not a production recommendation. Product names, APIs, pricing, and supported architectures can change; verify them against current Canonical documentation before adopting this design.
 
 ## What is Juju?
 
@@ -141,7 +143,11 @@ For each edge site:
 - **Security:** Certificate management, secret rotation (Vault), and IAM policies need hardening
 - **Scalability:** Testing with larger numbers of edge controllers and models is recommended
 
-### Overall Takeaway
+### Security and operational boundaries
+
+A central management plane increases consistency but also concentrates control. Before production use, define which operators can manage which models, isolate management traffic from workload traffic, rotate join credentials, restrict Tailscale routes, and test controller recovery without the management plane. Keep lab endpoints, credentials, and topology details out of public documentation.
+
+## Overall Takeaway
 
 JAAS/Juju provides a viable path for managing distributed infrastructure at scale, particularly in scenarios with mixed substrates (K8s + bare-metal + VMs). The technology is most valuable when:
 

@@ -17,9 +17,9 @@ spaces:
 
 import Mermaid from '@components/Mermaid.astro';
 
-Managing a fleet of Kubernetes clusters becomes more interesting when the fleet is split across trust domains. Some clusters run on AWS and can use native AWS identity. Others run outside AWS and still need to participate in the same GitOps control plane.
+The first time I connected a non-AWS spoke to a GitOps hub, I found an uncomfortable gap: the hub could issue the Agent certificate, but the spoke needed the resulting private key and certificate without receiving permission to use the certificate authority.
 
-That raises a practical question: **how do we deliver an Argo CD Agent certificate to a non-AWS spoke without giving that spoke access to the certificate authority?**
+That raised a practical question: **how do we deliver an Argo CD Agent certificate across trust domains without turning the spoke into a certificate issuer?**
 
 The answer we implemented is a small, explicit delivery bridge:
 
@@ -103,8 +103,18 @@ spec:
     secret:
       name: <cluster>-agent-client-tls
   data:
+    # Illustrative mapping. In a real deployment, map every required key
+    # (including tls.key and the certificate chain) explicitly.
     - match:
         secretKey: tls.crt
+        remoteRef:
+          remoteKey: platform/<cluster>/argocd/agent-client-tls
+    - match:
+        secretKey: tls.key
+        remoteRef:
+          remoteKey: platform/<cluster>/argocd/agent-client-tls
+    - match:
+        secretKey: ca.crt
         remoteRef:
           remoteKey: platform/<cluster>/argocd/agent-client-tls
 ```
@@ -132,10 +142,20 @@ spec:
     name: argocd-agent-client-tls
     creationPolicy: Owner
   data:
+    # Illustrative mapping; keep the exact property names aligned with the
+    # hub PushSecret and the Agent's expected Secret keys.
     - secretKey: tls.crt
       remoteRef:
         key: platform/<cluster>/argocd/agent-client-tls
         property: tls.crt
+    - secretKey: tls.key
+      remoteRef:
+        key: platform/<cluster>/argocd/agent-client-tls
+        property: tls.key
+    - secretKey: ca.crt
+      remoteRef:
+        key: platform/<cluster>/argocd/agent-client-tls
+        property: ca.crt
 ```
 
 The same pattern can deliver the Agent CA trust bundle. Keeping the client certificate and trust bundle as separate logical resources makes rotation and troubleshooting clearer, while both remain scoped to the same cluster path.
@@ -202,7 +222,15 @@ This bridge gives us several useful properties:
 - **Auditable movement:** certificate issuance, secret push, secret read, and Agent use are separate events with separate owners.
 - **Declarative recovery:** deleting the spoke Secret allows ESO to recreate it from the remote source.
 
-The boundary is only as strong as the policies behind it. The hub push role, spoke read role, KMS permissions, and Secrets Manager resource policy must all be scoped to the same cluster identity.
+The boundary is only as strong as the policies behind it. The hub push role, spoke read role, KMS permissions, and Secrets Manager resource policy must all be scoped to the same cluster identity. Before using this pattern, verify that:
+
+- the hub can write only the intended per-cluster secret path;
+- the spoke can read only that path and cannot write, delete, or list unrelated secrets;
+- KMS decrypt is limited to the required key and encryption context;
+- controller logs and Kubernetes RBAC do not expose the private key to unrelated workloads;
+- the remote value, spoke Secret, and Agent reload are all observable during rotation.
+
+The exact IAM and KMS policies are deployment-specific and should be reviewed alongside the Terraform plan. The YAML above is an architectural example, not a complete drop-in security policy.
 
 ## Operational ordering matters
 

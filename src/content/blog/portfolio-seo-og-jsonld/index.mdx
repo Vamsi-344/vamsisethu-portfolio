@@ -92,7 +92,7 @@ Two gotchas that cost me time:
 
 Open Graph is for humans-sharing-links. **JSON-LD** (JSON for Linking Data) is for machines. It's a `<script>` block of structured data using the [schema.org](https://schema.org) vocabulary that describes the *entities* on a page — a person, an article, a product — in a way search engines parse directly.
 
-Why bother? Because "a page with the word Vamsi on it" is far weaker than "this page is about a `Person` named Vamsi Krishna Sethu, who is a Site Reliability Engineer, holds this credential, and knows about these topics." The second one is what feeds **rich results** (author/date shown in search) and, over time, a **Knowledge Panel**.
+Why bother? Structured data gives crawlers explicit entity and article context instead of asking them to infer everything from visible text. It can make a page eligible for some rich-result features, but it does not guarantee a rich result, a Knowledge Panel, or higher rankings.
 
 ### Person schema (homepage)
 
@@ -117,7 +117,7 @@ Why bother? Because "a page with the word Vamsi on it" is far weaker than "this 
 }
 ```
 
-The `sameAs` array links my identity across profiles — that's how Google connects "this site's author" to "this GitHub/LinkedIn person." `hasCredential` encodes a real, verifiable certification.
+The `sameAs` array provides identity hints across profiles; it is not a verification mechanism and should contain only profiles that genuinely represent the same person. `hasCredential` encodes a real, verifiable certification, not a claim that search engines must display.
 
 ### BlogPosting schema (each post)
 
@@ -140,7 +140,7 @@ In Astro I made this reusable: a `structuredData` prop on the shared `<Head>` co
 )}
 ```
 
-You can validate the output with Google's [Rich Results Test](https://search.google.com/test/rich-results).
+You can validate syntax and supported features with Google's [Rich Results Test](https://search.google.com/test/rich-results) and the Schema Markup Validator. Validate the generated HTML, not only the source object: escaping, dates, URLs, and omitted optional fields matter.
 
 ## The canonical domain trap (the bug that broke my sitemap)
 
@@ -160,7 +160,7 @@ The site is served on Vercel, which redirects the apex domain to `www`:
     W -.->|"URLs inside point<br/>back to apex"| A
 `} />
 
-The root cause was a **mismatch**: my Astro config declared `site: "https://vamsisethu.com"` (apex), but Vercel actually served everything on `www`. So every URL inside the sitemap pointed to the apex domain, which then 308-redirected to `www`. The crawler fetching the apex sitemap URL got a redirect and a plain-text "Redirecting..." body instead of XML — hence "could not be read."
+The root cause was a **mismatch**: my Astro config declared `site: "https://vamsisethu.com"` (apex), but Vercel actually served everything on `www`. So every URL inside the sitemap pointed to the apex domain, which then 308-redirected to `www`. Redirects are not automatically fatal to crawlers, but they add an avoidable hop and can make sitemap diagnostics less clear. In my case, Search Console reported that the sitemap could not be read, so I removed the mismatch rather than relying on redirect handling.
 
 The deeper problem is **duplicate URLs**. Search engines treat `vamsisethu.com` and `www.vamsisethu.com` as different pages. If your canonical tags, sitemap, and internal links are split across both, any ranking authority gets **diluted across two versions** of every page.
 
@@ -198,7 +198,7 @@ Being honest about expectations, because SEO is full of magical thinking:
 | OG images | Better social click-through | Immediate on next share |
 | Sitemap hints | Faster/more-targeted crawling | Gradual |
 
-None of this manufactures rankings. What it does is remove the technical friction that was stopping good content from being discovered, attributed, and consolidated correctly. It's plumbing — but plumbing is what I do.
+None of this manufactures rankings. What it does is remove technical ambiguity and improve eligibility for discovery, attribution, and social previews. It is plumbing—but plumbing is what I do.
 
 ## Verify, don't assume
 
@@ -207,6 +207,6 @@ The infra habit applies here too. After deploying:
 1. Open `https://www.vamsisethu.com/sitemap-index.xml` — confirm it's XML with `www` URLs.
 2. Run a post through the [Rich Results Test](https://search.google.com/test/rich-results) to confirm the JSON-LD parses.
 3. Paste a URL into a [social card validator](https://www.opengraph.xyz/) to see the OG image.
-4. Submit the sitemap in Google Search Console — ideally under a **Domain property**, which covers `www` and apex together and sidesteps the whole trap above.
+4. Submit the sitemap in Google Search Console. A **Domain property** covers `www` and apex together, while URL-prefix properties are narrower; either way, keep the submitted sitemap URL and generated URLs on the chosen canonical host.
 
 That last point is the meta-lesson: the same discipline that keeps a Kubernetes platform healthy — match the contract, remove ambiguity, verify against reality — works just as well on a static website's `<head>`.

@@ -16,7 +16,7 @@ It didn't. I was already paying for it.
 
 ## The realization
 
-I have an **iCloud+ 50GB plan** — the cheap one, mostly there so my phone
+I already had an **iCloud+ 50GB plan**—the inexpensive tier I kept for personal storage—so I checked whether it could also host mail for my domain before buying another service. It could, but the exact Apple wizard and DNS records are provider-controlled and may change.
 backups and photos stop nagging me. Sitting quietly inside that plan is a feature
 called **Custom Email Domain**. It lets you attach a domain you own to iCloud
 Mail and receive/send mail from addresses on that domain, using the iCloud inbox
@@ -146,6 +146,10 @@ address.
   it won't import old mail sitting on the previous provider. Back that up first.
 - **Verify vs. create.** A verified domain with zero addresses receives no mail.
   Creating the address is a separate step.
+
+## Safety and maintenance notes
+
+Treat the DNS records in this post as examples, not permanent values. Use the records shown by Apple's current Custom Email Domain wizard, preserve existing verification and website records, and make changes with a rollback plan. Mail delivery also depends on SPF, DKIM, DMARC, forwarding, and account recovery settings; verify those separately after changing DNS.
 
 ## The lesson
 

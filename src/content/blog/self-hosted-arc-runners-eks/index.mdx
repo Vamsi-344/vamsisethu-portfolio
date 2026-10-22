@@ -10,7 +10,9 @@ spaces:
 
 import Mermaid from '@components/Mermaid.astro';
 
-We needed self-hosted GitHub Actions runners for our CI/CD pipelines. The goals were simple — save on GitHub-hosted runner costs, run jobs inside our own AWS network, and auto-scale from zero when idle. This post covers the full setup of ARC v2 on an existing EKS cluster, the problems we ran into, and how we solved them.
+I first reached for self-hosted runners when a CI job needed private-network access and the hosted runner made that boundary awkward. The goals were straightforward: keep jobs inside our AWS network, scale runners down when idle, and avoid maintaining long-lived machines.
+
+This post describes the ARC scale-set pattern I used on an existing EKS cluster, the problems I hit, and the safety decisions that matter when CI code runs inside your account. Chart versions, runner images, and GitHub permissions should be pinned and rechecked before copying these commands.
 
 ## Why ARC?
 
@@ -232,6 +234,20 @@ template:
 
 This installs tools **once** in the image instead of on every job run.
 
+## Security boundaries
+
+A self-hosted runner is inside your account, so a workflow can become an AWS and Kubernetes access path. Before enabling a repository, review its workflows and fork policy. In particular:
+
+- use an IAM role with only the AWS actions the jobs need;
+- keep runner service accounts and node roles separate from application workloads;
+- do not mount the host Docker socket unless the container-escape risk is accepted;
+- prefer ephemeral runners and destroy workspaces after every job;
+- restrict which repositories and branches can target the scale set;
+- pin action references or use an approved action policy;
+- store the GitHub App private key through a secret manager, never in Git or Helm values.
+
+Docker-in-Docker requires privileged containers and increases the blast radius. Prefer native tools or rootless/build-isolated alternatives where possible.
+
 ## Key Takeaways
 
 1. **ARC runners are minimal** — they're not GitHub-hosted runners. Plan for missing tools.
@@ -243,6 +259,6 @@ This installs tools **once** in the image instead of on every job run.
 
 ## Cost
 
-Running this on an existing cluster, the incremental cost is essentially just the compute used when jobs are running. With `minRunners: 0`, idle cost is zero (runner pods). The ARC controller itself is lightweight (~128MB RAM).
+Running this on an existing cluster avoids a separate control-plane cost, but idle cost is not automatically zero: the controller, nodes, EBS, NAT traffic, logs, and any minimum node capacity still cost money. `minRunners: 0` only scales runner pods to zero.
 
-Compared to GitHub-hosted runners at $0.008/min for Linux, self-hosted runners on a `m5.large` (~$0.096/hr in ap-south-1) break even quickly if you're running more than ~12 minutes of CI per hour on average.
+Compare your measured node, storage, network, and operations costs with the applicable GitHub-hosted runner price. Prices and instance rates change, so treat any break-even calculation as a local estimate rather than a durable claim.

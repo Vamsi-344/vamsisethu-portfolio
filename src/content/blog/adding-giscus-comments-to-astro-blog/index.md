@@ -10,7 +10,7 @@ spaces:
   - homelab
 ---
 
-I wanted a lightweight comment system for the technical notes on this site. The requirements were simple:
+I wanted a lightweight way for readers to discuss technical notes without operating a separate forum. The requirements were simple: keep comments close to the repository workflow, avoid another database, and make the privacy and moderation tradeoffs visible before enabling it.
 
 - Keep the site static.
 - Avoid ad-heavy or tracker-heavy comment platforms.
@@ -112,6 +112,8 @@ gets a separate discussion thread from:
 ```
 
 ## Is the Giscus config safe to commit?
+
+The public repository and discussion identifiers are configuration, not credentials. Still, enabling Giscus means comments are hosted through GitHub Discussions and the embedded client makes browser requests to the configured service. Review GitHub's current permissions, moderation, privacy, and content-retention behavior before using this pattern for sensitive audiences. Never place a token, private key, or admin credential in the component.
 
 Yes. The Giscus configuration is safe to include in a public repository.
 

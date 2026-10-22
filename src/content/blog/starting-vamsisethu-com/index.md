@@ -9,8 +9,8 @@ spaces:
   - homelab
 ---
 
-This site is my home for notes on DevOps, Site Reliability Engineering, and
-platform engineering.
+This site is my home for notes on DevOps, Site Reliability Engineering, and platform work. I am building it as a working notebook rather than a polished encyclopedia: each article should explain what I tried, what surprised me, and what I would verify before repeating it.
+
 
 I work mostly around Kubernetes, OpenShift, OpenStack, bare-metal provisioning,
 GitOps, CI/CD, observability, and cloud-native storage. A portfolio is useful for

@@ -1,0 +1,174 @@
+---
+title: "From Terraform to a Running GPU Spoke: Building a Cluster Onboarding Factory"
+description: "A generalized pattern for onboarding non-cloud GPU Kubernetes clusters through infrastructure as code, GitOps, short-lived identity, secrets, bootstrap, and validation."
+date: "Oct 18 2026"
+tags:
+  - Kubernetes
+  - GitOps
+  - Terraform
+  - GPU
+spaces:
+  - kubernetes
+  - gitops
+  - cloud-infrastructure
+---
+
+I used to think a new GPU cluster was onboarded when its Kubernetes API became reachable. That definition lasted until a cluster could be `Ready` in Rancher while its workloads still could not pull an image, read a secret, or find their queue.
+
+The real unit of onboarding is not the cluster registration. It is the set of contracts that lets a cluster participate in the platform: identity, secrets, GitOps, storage, queues, registries, certificates, and workload health.
+
+This article describes the generalized pattern I use for connecting a non-cloud GPU Kubernetes cluster to a cloud-centered inference platform. It intentionally omits provider names, internal URLs, account identifiers, cluster names, repository paths, and organization-specific resource names.
+
+## The moment the definition changed
+
+A useful test is simple:
+
+> Can a workload on the new cluster authenticate, retrieve its configuration, pull its image, reach its queue, use its storage, and receive traffic?
+
+If the answer is not yes, the cluster is not onboarded yet—even if the nodes are green.
+
+That question led to a factory-like process rather than a pile of one-off manifests.
+
+## The onboarding pipeline
+
+```text
+cluster facts
+  → cloud-side identity and infrastructure
+  → GitOps spoke and hub manifests
+  → encrypted secret synchronization
+  → cluster bootstrap
+  → GitOps and secret reconciliation
+  → workload, storage, registry, and queue validation
+```
+
+The pipeline has two major ownership boundaries:
+
+- **Infrastructure as code** owns cloud-side resources: trust anchors, short-lived identity profiles and roles, storage policies, image-repository permissions, queues, and tests.
+- **GitOps** owns cluster intent: Applications, providers, certificates, ExternalSecrets, node labels, storage, and workload configuration.
+
+This separation is more than repository organization. It makes reviews easier and exposes sequencing constraints. GitOps cannot consume an identity profile before infrastructure creates it, and a resource policy cannot reference a role that does not yet exist.
+
+## One abstract input, several concrete resources
+
+The safest design derives names from one abstract cluster record:
+
+```yaml
+account: <account-slug>
+environment: <environment>
+region: <region>
+zone: <zone>
+provider: <provider>
+cluster: <cluster-name>
+shortName: <short-cluster-name>
+```
+
+That record should consistently produce:
+
+```text
+certificate subject  → account/environment/region/zone/provider/cluster
+cloud resource names → shortName + purpose
+secret path          → account/region/zone/provider/cluster
+GitOps values        → the same identity and generated references
+```
+
+The actual values are intentionally omitted here. The point is that a cluster should not have one name in Terraform, another in GitOps, and a third in its secret policy.
+
+For non-cloud clusters, short-lived certificate-based identity is preferable to static cloud credentials. The cluster proves possession of a private key, obtains temporary credentials for a narrowly scoped role, and uses those credentials only for the workload's purpose.
+
+## Why the order matters
+
+A repeatable onboarding sequence looks like this:
+
+1. Create and test cloud identity, policies, queues, and image access.
+2. Apply the infrastructure plan and capture generated references securely.
+3. Populate GitOps configuration without committing sensitive values.
+4. Add encrypted or generated cluster secrets.
+5. Bootstrap the spoke.
+6. Reconcile the secret and GitOps controllers.
+7. Test registry, queue, object-storage, certificates, storage, and workload access.
+
+Skipping a gate creates misleading symptoms. A missing secret can look like an ArgoCD failure. A missing queue can look like an agent failure. A stale certificate request can look like a policy failure even after the policy is corrected.
+
+I now treat every generated ARN, secret, queue, and certificate as a dependency to verify—not as evidence that the previous step worked.
+
+## A reusable checklist
+
+```text
+[ ] node name and GPU topology confirmed
+[ ] storage device safety confirmed
+[ ] pod/service CIDRs and DNS resolver confirmed
+[ ] infrastructure plan reviewed and tested
+[ ] identity subject/profile/role names match
+[ ] object-storage/image/queue permissions tested
+[ ] GitOps references populated
+[ ] secret files generated and synchronized
+[ ] cluster registration confirmed
+[ ] GitOps agent connected
+[ ] ExternalSecrets Ready
+[ ] certificate issued
+[ ] image pull works
+[ ] queue and object-storage access works
+[ ] GPU workload and storage validated
+```
+
+A checklist is only useful when each item has evidence. For example:
+
+| Gate | Evidence of success |
+|---|---|
+| Identity | The workload obtains temporary credentials as the expected role |
+| Secrets | ExternalSecret is `Ready` and the target Kubernetes Secret exists |
+| Registry | A real workload pulls the intended image |
+| Queue | The workload can perform its required queue action |
+| Certificate | Certificate and Gateway listener are ready |
+| Storage | The PVC binds and the workload can read/write its intended path |
+
+## Failure modes worth designing for
+
+### Eventual consistency
+
+A secret write may succeed while an immediate read or tag operation temporarily reports that the object does not exist. Sync tooling should retry, be idempotent, process files independently where possible, and report partial success clearly.
+
+### Resource sequencing
+
+A configuration can be syntactically valid while referencing a queue, role, certificate, or repository that has not been created yet. Apply infrastructure first, then update GitOps, then bootstrap.
+
+### Historical certificate requests
+
+Certificate controllers retain the status of an old failed request. Updating a policy does not necessarily make that request retry. Inspect the current policy and request separately, then recreate only the failed request when safe; do not delete the desired Certificate object or an existing valid secret.
+
+### GitOps automation during stabilization
+
+Automated sync is valuable for drift correction, but first installation of hardware-sensitive workloads may need a stabilization mode. Keep the app-of-apps capable of delivering Application definitions, while making workload Applications manually controlled until storage, certificates, networking, and workload readiness are verified.
+
+### Hardware facts
+
+Node names, device identifiers, network ranges, and GPU topology are configuration inputs—not incidental facts. Confirm them on the target cluster immediately before applying manifests. Never assign a disk to a storage engine until it is confirmed unpartitioned, unmounted, and not part of a host RAID array.
+
+## The deeper pattern
+
+The onboarding factory is a collection of contracts:
+
+- Infrastructure code proves cloud resources exist.
+- GitOps declares how the cluster consumes them.
+- Bootstrap establishes the cluster trust path.
+- The secret controller proves secret delivery.
+- The GitOps agent proves desired-state delivery.
+- Runtime tests prove that workloads can use the resulting identity.
+
+A cluster is ready only when all contracts pass. A healthy Helm release alone is not sufficient evidence.
+
+## What I would automate next
+
+The next improvement is not another deployment manifest. It is a readiness command that checks the contracts together and reports the first failed boundary:
+
+```text
+identity → secrets → certificates → registry → queues → storage → workload
+```
+
+That would turn a dashboard full of red Applications into a useful statement such as: “the workload identity is valid, but the queue has not been provisioned.”
+
+## Conclusion
+
+The reusable product is not one particular cluster. It is the onboarding path: deterministic naming, explicit repository boundaries, dependency-aware sequencing, generated secrets, and validation that exercises the complete control-plane/data-plane path.
+
+Publishing this pattern is useful; publishing the original internal names and paths is not. Keep provider-specific manifests and operational notes private, and use anonymized diagrams and examples for public writing.

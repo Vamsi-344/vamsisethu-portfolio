@@ -6,9 +6,13 @@ spaces:
   - homelab
 ---
 
-I recently needed to restore my Google Takeout export back to Google services. What sounds simple — "just upload it back" — turned into a full-day adventure involving metadata preservation, EXIF manipulation, and OAuth API configuration. Here's everything I learned.
+I recently needed to restore my Google Takeout export back to Google services. What sounded simple—“just upload it back”—became a full-day exercise in metadata preservation, EXIF manipulation, disk space, and OAuth configuration.
+
+This is a personal recovery workflow, not a guarantee that Google will recreate every original album, timestamp, permission, or metadata field. Keep the original Takeout archive untouched and test the process on a small sample first.
 
 ## The Problem
+
+Before running any command, make a second backup of the Takeout archive. Upload tools and third-party helpers may rename files, rewrite metadata, or create duplicate media; recovery is much easier when the source remains immutable.
 
 Google Takeout gives you a zip dump of your data. But uploading it back isn't straightforward:
 

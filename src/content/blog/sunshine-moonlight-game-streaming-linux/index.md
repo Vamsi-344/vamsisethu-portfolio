@@ -6,7 +6,9 @@ spaces:
   - homelab
 ---
 
-I wanted to play games on my MacBook without it melting, so I turned my GTX 1650 laptop running Pop!_OS into a personal cloud gaming server. The idea is simple — run games on the powerful GPU laptop, stream the video to any client device over the network. This post covers the full setup, the problems I hit, and how I solved them.
+I wanted to play games on my MacBook without making it do the rendering, so I turned a Linux laptop with a GTX 1650 into a personal game-streaming server. The setup worked, but the fix depended on the laptop's Optimus wiring, kernel, driver, and display path.
+
+Treat the commands below as a dated troubleshooting record. Sunshine, NVIDIA drivers, Pop!_OS, and Moonlight change quickly; confirm current package names and review the network exposure before copying them.
 
 ## The Setup
 
@@ -99,11 +101,15 @@ output_name = 0
 
 ### Why this works:
 
+This workaround is hardware-specific. VAAPI/KMS may be the right path for an Intel-connected panel, but another laptop may need NVENC, a different DRM device, or a virtual display.
+
 - **KMS capture** grabs frames directly from the DRM/KMS framebuffer — more efficient than X11 capture and works correctly with Optimus
 - **VAAPI encoder** uses Intel QuickSync hardware encoding on the same GPU that renders the display — no cross-GPU copy needed
 - The Intel UHD 630 (CoffeeLake) has excellent H.264 and HEVC encoding support
 
 ### Prerequisites:
+
+Keep Sunshine behind a trusted network or VPN such as Tailscale; do not expose its management or streaming ports directly to the public internet without an explicit threat model and access controls.
 
 ```bash
 # Install VAAPI driver

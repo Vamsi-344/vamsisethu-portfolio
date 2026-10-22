@@ -10,9 +10,9 @@ spaces:
 
 import Mermaid from '@components/Mermaid.astro';
 
-One of our staging Argo CD hubs stopped letting anyone log in. The Cognito login succeeded, then the browser bounced straight back to the login page — over and over. The same setup on our dev hub, provisioned by the exact same workflow, was completely fine.
+One of our staging Argo CD hubs stopped letting anyone log in. Cognito succeeded, then the browser bounced straight back to the login page—over and over. The same setup on our dev hub, provisioned by the exact same workflow, was completely fine.
 
-This is the story of chasing that down. It ends somewhere I didn't expect: a NetworkPolicy owned by one Helm chart that needed a rule about a component from a *different* chart, and a subtle environment difference that kept the bug hidden on one cluster and lethal on another.
+I initially looked at OIDC configuration because the symptom looked like an authentication failure. The useful clue turned out to be a Redis timeout after authentication. This is the story of following that clue down to a NetworkPolicy owned by one Helm chart that needed a rule about a component from a *different* chart.
 
 ## The symptom
 
@@ -77,7 +77,7 @@ module=redisProxy  function=redisFxn
 "unable to connect to principal redis"
 ```
 
-`172.20.21.85` is the ClusterIP of `argocd-redis`. So the failing hop wasn't `server → proxy`. It was **`proxy (principal) → argocd-redis`**. The principal — which does the actual Redis connection on the server's behalf — could not reach Redis, and had been failing that dial continuously.
+`<REDIS_CLUSTER_IP>` is the ClusterIP of `argocd-redis`. I have replaced the real internal address here because it adds no value to the public explanation. The failing hop wasn't `server → proxy`. It was **`proxy (principal) → argocd-redis`**. The principal—which does the actual Redis connection on the server's behalf—could not reach Redis and had been failing that dial continuously.
 
 ## The root cause: a NetworkPolicy that never heard of the principal
 
@@ -122,7 +122,7 @@ So the NetworkPolicy bug was present on **both** hubs the whole time. On dev, en
 
 That's the worst kind of latent bug: it lives quietly in your manifests and only detonates when an unrelated setting changes. Turn on NetworkPolicy enforcement on the "working" cluster and it breaks the instant you do.
 
-## The fix
+## ## The fix
 
 Allow the principal in Argo CD's Redis NetworkPolicy ingress:
 
@@ -135,7 +135,18 @@ Allow the principal in Argo CD's Redis NetworkPolicy ingress:
         app.kubernetes.io/name: argocd-agent-principal
 ```
 
-The satisfying part: this is *exactly* the patch argocd-agent's upstream kustomize overlay (`install/kubernetes/argo-cd/principal`) already applies. When I rendered that overlay, the resulting `argocd-redis-network-policy` did include the principal. So the canonical kustomize install path is correct — the gap only shows up if you install via a path that doesn't apply that patch (for example, the principal Helm chart, which can't modify a policy owned by the Argo CD chart).
+The satisfying part: this is *exactly* the patch argocd-agent's upstream kustomize overlay (`install/kubernetes/argo-cd/principal`) already applies. When I rendered that overlay, the resulting `argocd-redis-network-policy` did include the principal. So the canonical kustomize install path is correct—the gap only shows up if you install through a path that does not apply that patch, such as a principal Helm chart that cannot modify a policy owned by the Argo CD chart.
+
+After applying the fix, verify the rendered policy and the labels rather than trusting the login screen alone:
+
+```bash
+kubectl -n argocd get networkpolicy argocd-redis-network-policy -o yaml
+kubectl -n argocd get pods --show-labels | grep argocd-agent-principal
+kubectl -n argocd describe networkpolicy argocd-redis-network-policy
+kubectl -n argocd logs deploy/argocd-server | grep -E 'Redis|session|timeout'
+```
+
+A `podSelector` without a `namespaceSelector` matches pods in the NetworkPolicy's own namespace. That is correct here because the principal and Redis are in the same namespace; a cross-namespace client would require an explicit namespace selector as well.
 
 ## Takeaways
 
@@ -144,4 +155,14 @@ The satisfying part: this is *exactly* the patch argocd-agent's upstream kustomi
 - **Cross-chart assumptions are a blind spot.** When one component (argocd-agent) makes another component (Argo CD Redis) a new client, the security policy on the target often doesn't know. Neither chart's defaults are wrong in isolation; the gap is in the seam.
 - **A policy that isn't enforced is not the same as a policy that is correct.** Enforcement being off on one environment hid a real manifest bug. "It works on dev" meant "dev doesn't enforce this," not "the manifest is right."
 
-If you run argocd-agent with the Redis proxy on a cluster that enforces NetworkPolicy, make sure your Argo CD `argocd-redis` policy allows `argocd-agent-principal` on port 6379. It'll save you a very confusing login loop.
+If you run argocd-agent with the Redis proxy on a cluster that enforces NetworkPolicy, make sure your Argo CD `argocd-redis` policy allows `argocd-agent-principal` on port 6379. It may save you a very confusing login loop.
+
+The general debugging sequence is:
+
+| Symptom | First hypothesis |
+|---|---|
+| Connection timeout | NetworkPolicy, firewall, or routing drop |
+| Connection refused | Wrong port/address or no listener |
+| DNS failure | Service name, namespace, or cluster DNS problem |
+| Authentication error | Redis credentials or secret mismatch |
+| Expired session token | Cache persistence or token refresh failure |

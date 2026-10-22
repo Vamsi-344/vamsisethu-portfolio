@@ -9,7 +9,9 @@ spaces:
 
 import Mermaid from '@components/Mermaid.astro';
 
-We ship Helm charts to production via GitOps. Our CI pipeline had `helm lint` and `helm template` — both passed happily on manifests that would then fail at apply time on the cluster. The gap: **nobody was validating whether the rendered YAML was actually valid Kubernetes**.
+I first noticed this gap when a chart rendered cleanly in CI but failed only after it reached a real cluster. `helm lint` and `helm template` had answered “can Helm render this?”, not “will this Kubernetes API accept it?”
+
+We ship Helm charts through GitOps, so I wanted a fast, offline gate that could run before the controller tried to apply anything. That became kubeconform.
 
 ## The Problem
 
@@ -38,9 +40,9 @@ spec:
 - `yamllint` → ✅ (valid YAML syntax)
 - `helm lint` → ✅ (valid chart structure)
 - `helm template` → ✅ (renders without error)
-- `kubectl apply` → ❌ **fails in production**
+- `kubectl apply` → ❌ **fails at admission**
 
-There's a validation gap between "renders successfully" and "Kubernetes will accept this." That gap is where kubeconform lives.
+There's a validation gap between “renders successfully” and “Kubernetes will accept this.” That gap is where kubeconform lives. Depending on the resource and API-server settings, unknown fields may be rejected or pruned; either behavior can make a typo operationally significant.
 
 ## What is Kubeconform?
 
@@ -99,7 +101,7 @@ for v in crd["spec"]["versions"]:
 ' > .schemas/provisioning.cattle.io/Cluster_v1.json
 ```
 
-The schema is stored in the repo at `.schemas/` and referenced by kubeconform:
+The schema is stored in the repo at `.schemas/` and referenced by kubeconform. In practice, the extractor must preserve the CRD's required fields, enum constraints, lists, and per-version differences; a hand-built wrapper that keeps only `properties` can produce a schema that is too permissive. Treat schema extraction as code, review its diff, and regenerate it whenever the source CRD changes:
 
 ```bash
 kubeconform -strict \
@@ -181,7 +183,7 @@ datreeio/CRDs-catalog is useful but can be stale. If your CRD is generated at ru
 
 ### 2. `-strict` mode is worth the noise
 
-Without `-strict`, kubeconform only validates types and required fields. A typo like `limts` instead of `limits` passes silently — the API server just ignores the unknown field. With `-strict`, it's caught immediately.
+Without `-strict`, kubeconform can miss unknown fields. A typo like `limts` instead of `limits` may pass schema validation even though the API server later rejects or prunes it. With `-strict`, it is caught in CI.
 
 ### 3. Schema location order matters
 
@@ -217,11 +219,12 @@ It validates against the **static OpenAPI schema** only. It won't catch:
 - Cross-resource references (e.g., a Secret referenced by a Deployment that doesn't exist)
 - Runtime constraints (resource quotas, pod security policies)
 
-For those, you'd need `kubectl apply --dry-run=server` against a real cluster. Kubeconform is the fast, offline first line of defense.
+For those, use `kubectl apply --dry-run=server` against a representative cluster, admission replay tests, or a disposable integration cluster. Kubeconform is the fast, offline first line of defense—not proof that a deployment will reconcile or become healthy.
 
 ## Cost
 
 - ~5 seconds per chart in CI
+- Pin the kubeconform binary checksum or verify its release digest; downloading an unverified executable in CI weakens the supply chain
 - Zero cluster access required
 - Single binary, no dependencies
 - No ongoing maintenance beyond re-extracting schemas after CRD upgrades

@@ -11,7 +11,9 @@ spaces:
   - kubernetes
 ---
 
-I recently investigated [K3s issue #14739](https://github.com/k3s-io/k3s/issues/14739), which asked the project to adopt the latest CIS Kubernetes Benchmark in its security documentation.
+I investigated [K3s issue #14739](https://github.com/k3s-io/k3s/issues/14739) after noticing that a security-documentation update required more than changing a version string. The useful lesson was that benchmark claims need reproducible assessment output and project-specific review, not just polished prose.
+
+This article describes that contribution workflow at the time of investigation. Benchmark versions, K3s release branches, and project submission requirements should be checked against the current upstream repository.
 
 I initially treated it as a documentation update. That turned out to be only part of the work—and the most useful lesson was discovering how a security assessment must be generated and maintained, not just written.
 
@@ -63,6 +65,8 @@ K3s does not create a CIS assessment page by manually copying the CIS PDF. The p
 At the time of the contribution, the maintainer explained that K3s had a `k3s-cis-2.0` configuration, but there was not yet a valid generic CIS 2.1 kube-bench configuration to base a K3s-specific assessment on.
 
 ## What I took away
+
+A benchmark document is not itself a security guarantee. Treat it as one input to a threat model, and validate the actual release configuration, host hardening, admission controls, secrets handling, and runtime exposure. Do not copy benchmark commands into production without checking what they read, change, or disclose.
 
 The main lesson was that security documentation is often the output of a reproducible validation pipeline. A polished Markdown page is not enough if it cannot be traced back to the scanner configuration and a real hardened-cluster assessment.
 

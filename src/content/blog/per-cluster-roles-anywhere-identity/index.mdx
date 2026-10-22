@@ -10,11 +10,11 @@ spaces:
 
 import Mermaid from '@components/Mermaid.astro';
 
-We run a fleet of Kubernetes clusters, some on AWS EKS and some non-AWS (RKE2 on bare metal). The AWS ones are easy: EKS Pod Identity gives every workload an AWS identity with no long-lived secrets. The non-AWS ones have no such luxury — they have no AWS identity at all — so they authenticate to AWS with a **certificate**, via [IAM Roles Anywhere](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html).
+I wanted a non-AWS GPU cluster to consume a few AWS services without handing it a static access key. That sounds like an identity problem, but the harder question was blast radius: if one spoke or one workload is compromised, how much of the fleet can it impersonate?
 
-Roles Anywhere is great, but it forces a design question that's easy to get wrong: **how many trust anchors, profiles, and roles do you create, and how do you scope them, so that a fully compromised spoke can only ever be *itself* — and can only do what that *one* consumer needs?**
+Our fleet includes AWS EKS clusters and non-AWS RKE2/bare-metal clusters. EKS workloads can use EKS Pod Identity. A non-AWS spoke has no native AWS identity, so it authenticates with a certificate through [IAM Roles Anywhere](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html).
 
-This post is the design we landed on, why the obvious "shared anchor" approach is a footgun, and how we made the whole thing free of ACM Private CA.
+This is the design I arrived at, the shared-anchor mistake it avoids, and the assumptions that must be true before calling it secure. It is a design pattern, not a drop-in policy: names, permissions, rotation, and compromise response must be adapted to the deployment.
 
 ## A 60-second primer on Roles Anywhere
 
@@ -95,16 +95,24 @@ The trust anchor pins that self-signed cert directly. Why this is strictly bette
 
 - The anchor already pins the *cluster's own* CA — that's the entire isolation boundary. Chaining it up to a shared account root buys **nothing** for isolation.
 - A shared root reintroduces exactly the problem the per-cluster anchor exists to avoid, and adds a `pathlen` path-validation headache (a leaf under an intermediate under a `pathlen:0` root fails validation).
-- Self-signed removes a whole dependency — ACM-PCA, its issuer, its per-CA cost — with **no loss of security**. A stolen spoke CA key still only mints certs that chain to its own anchor.
+- Self-signed removes a whole dependency — ACM-PCA, its issuer, and its per-CA cost — while preserving the intended isolation boundary. This conclusion assumes the CA private key remains protected inside the spoke and that the trust anchor is not updated to accept another CA. A stolen spoke CA key still mints certs that chain only to its own anchor.
 
 ## Where each piece is created
 
-The CA is minted *in the cluster* at onboarding, so Terraform can't read it at plan time. So creation is split:
+The CA is minted *in the cluster* at onboarding, so Terraform can't read it at plan time. That also makes key custody and lifecycle part of the security design: the CA key must be non-exportable where practical, access-controlled, backed up only through an approved recovery process, and rotated after suspected compromise. So creation is split:
 
 - **The onboarding workflow** owns the one thing only it can: it generates the self-signed CA in-cluster (create-if-absent) and injects it into that cluster's trust anchor. The inject is idempotent — it fingerprint-compares against what the anchor already holds and is a no-op on re-run.
 - **Terraform** owns all the reviewable IAM: the per-cluster roles and per-role profiles (via a `for_each` over the account's non-AWS clusters), each role's trust policy (anchor + CN pin) and permission policy. It references the anchor by a deterministic name.
 
 This keeps the security-sensitive IAM in reviewed, planned Terraform, while the workflow handles the in-cluster cert that Terraform structurally can't.
+
+## Rotation and compromise response
+
+A per-cluster anchor limits the blast radius; it does not make a stolen CA key harmless. A CA-key compromise lets an attacker mint identities for that cluster's roles, while a stolen leaf key should be limited by its profile, role trust policy, and permission policy.
+
+A rotation runbook should be explicit: stop or quarantine the affected spoke, revoke or disable the old Roles Anywhere profiles, create a replacement CA and anchor, issue new leaf certificates, update the cluster trust material, and inspect CloudTrail for unexpected `CreateSession` calls. Do not rely on certificate expiry as the only response mechanism.
+
+The examples below intentionally omit real account IDs and resource names. In a production implementation, review the exact IAM trust and permission policies and test both the allowed and denied paths.
 
 ## The one fail-closed gotcha
 
@@ -118,5 +126,5 @@ AWS EKS spokes never touch any of this. They use EKS Pod Identity — no CA, no 
 
 - **Scope the blast radius to the thing you can lose.** A stolen key should compromise exactly one cluster; a compromised pod should reach exactly one role. Two independent boundaries (anchor per cluster, profile per role) get you both.
 - **CN conditions are a belt, not the trousers.** They're enforced server-side and worth having, but they don't stop a holder of the signing key from forging CNs. The anchor boundary is what actually contains a stolen key.
-- **A shared root buys nothing when the anchor already pins the leaf's own CA.** Self-signed per-cluster CAs are simpler, cheaper, and just as safe — and they sidestep `pathlen` validation entirely.
+- **A shared root buys nothing when the anchor already pins the leaf's own CA.** Self-signed per-cluster CAs are simpler and cheaper, while preserving the intended isolation when key custody and rotation are handled correctly — and they sidestep `pathlen` validation entirely.
 - **Split creation by what each tool can actually see.** Reviewable IAM in Terraform; the in-cluster cert in the workflow, made idempotent so re-runs are no-ops.
