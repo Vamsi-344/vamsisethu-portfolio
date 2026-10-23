@@ -7,6 +7,10 @@ import vercel from "@astrojs/vercel";
 export default defineConfig({
   site: "https://www.vamsisethu.com",
   output: "static",
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: "hover",
+  },
   adapter: vercel({
     webAnalytics: {
       enabled: true,
