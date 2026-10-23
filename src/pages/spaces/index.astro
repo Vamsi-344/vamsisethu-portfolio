@@ -2,7 +2,6 @@
 import { getCollection } from "astro:content";
 import Container from "@components/Container.astro";
 import PageLayout from "@layouts/PageLayout.astro";
-import Link from "@components/Link.astro";
 import { SPACES } from "@lib/spaces";
 
 const posts = (await getCollection("blog")).filter(post => !post.data.draft);
@@ -18,34 +17,29 @@ const spaces = SPACES.map(space => ({
 <PageLayout title="Spaces" description="Browse Vamsi Krishna Sethu's articles and projects by technical domain: Kubernetes, GitOps, AWS, observability, security, and homelab infrastructure.">
   <Container>
     <div class="space-y-10">
-      <section class="animate space-y-4">
-        <div class="text-sm text-black/55 dark:text-white/55">
-          Articles and projects by domain
-        </div>
-        <h1 class="text-4xl font-semibold tracking-tight text-black dark:text-white sm:text-5xl">
-          Spaces
-        </h1>
-        <article class="max-w-2xl text-lg leading-8">
-          <p>
-            A map of the technical areas I write and build around — from Kubernetes and GitOps to security, observability, cloud, and homelab infrastructure.
-          </p>
-        </article>
+      <section class="animate nb-on-color rounded-nb border-4 border-nb-border bg-nb-purple p-6 shadow-nb-xl sm:p-8">
+        <span class="nb-tag">Articles &amp; projects by domain</span>
+        <h1 class="mt-3 text-5xl font-black uppercase tracking-tight sm:text-6xl">Spaces</h1>
+        <p class="mt-3 max-w-2xl text-lg font-semibold leading-7">
+          A map of the technical areas I write and build around — from Kubernetes and GitOps to security, observability, cloud, and homelab infrastructure.
+        </p>
       </section>
 
       <section class="animate">
-        <ul class="grid gap-4 sm:grid-cols-2">
+        <ul class="nb-cycle grid gap-5 sm:grid-cols-2">
           {spaces.map(space => (
             <li>
-              <a href={`/spaces/${space.slug}`} class="block h-full rounded-xl border border-black/10 bg-white p-5 no-underline transition hover:-translate-y-0.5 hover:border-black/25 hover:text-black dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/25 dark:hover:text-white">
+              <a href={`/spaces/${space.slug}`} class="nb-card-interactive group block h-full p-5 no-underline">
                 <div class="flex items-start gap-4">
-                  <span class="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#1D88B5]/10 ring-1 ring-[#1D88B5]/10 dark:bg-[#1D88B5]/15 dark:ring-[#1D88B5]/20" aria-hidden="true">
+                  <span class="nb-accent nb-accent-bg flex size-12 shrink-0 items-center justify-center rounded-nb border-[3px] border-nb-border transition-transform group-hover:-rotate-6" aria-hidden="true">
                     <img src={space.logo} alt="" class="size-6 object-contain" loading="lazy" decoding="async" />
                   </span>
                   <div>
-                    <h2 class="font-semibold text-black dark:text-white">{space.name}</h2>
-                    <p class="mt-2 text-sm leading-6 text-black/55 dark:text-white/60">{space.description}</p>
-                    <p class="mt-4 text-sm text-black/45 dark:text-white/45">
-                      {space.postCount} post{space.postCount === 1 ? "" : "s"} · {space.projectCount} project{space.projectCount === 1 ? "" : "s"}
+                    <h2 class="text-lg font-black uppercase tracking-tight text-nb-ink dark:text-nb-ink-dark">{space.name}</h2>
+                    <p class="mt-2 text-sm font-medium leading-6 nb-muted">{space.description}</p>
+                    <p class="mt-4 flex flex-wrap gap-2 font-mono text-xs font-black uppercase">
+                      <span class="rounded border-2 border-nb-border bg-nb-yellow px-1.5 text-nb-ink">{space.postCount} post{space.postCount === 1 ? "" : "s"}</span>
+                      <span class="rounded border-2 border-nb-border bg-nb-blue px-1.5 text-nb-ink">{space.projectCount} project{space.projectCount === 1 ? "" : "s"}</span>
                     </p>
                   </div>
                 </div>
@@ -56,7 +50,7 @@ const spaces = SPACES.map(space => ({
       </section>
 
       <div class="animate">
-        <Link href="/">Back home</Link>
+        <a href="/" class="nb-chip nb-press text-xs uppercase hover:bg-nb-yellow">← Back home</a>
       </div>
     </div>
   </Container>

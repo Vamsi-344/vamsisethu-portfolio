@@ -23,52 +23,68 @@ const posts = data.reduce((acc: Acc, post) => {
   }, {});
 
 const years = Object.keys(posts).sort((a, b) => parseInt(b) - parseInt(a)); 
+
+const tagCounts = data
+  .flatMap(post => post.data.tags ?? [])
+  .reduce((acc: Record<string, number>, tag) => {
+    acc[tag] = (acc[tag] ?? 0) + 1;
+    return acc;
+  }, {});
+const allTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 ---
 
 <PageLayout title={BLOG.TITLE} description={BLOG.DESCRIPTION}>
   <Container>
-    <div class="space-y-10">
-      <section class="animate space-y-4">
-        <div class="space-y-3">
-          <div class="font-semibold text-black dark:text-white">
-            Blog
-          </div>
-          <p class="max-w-2xl text-sm leading-6 text-black/55 dark:text-white/60">
-            Technical notes on Kubernetes, GitOps, cloud infrastructure, automation, and platform engineering.
-          </p>
+    <div class="space-y-12">
+      <section class="animate nb-on-color rounded-nb border-4 border-nb-border bg-nb-blue p-6 shadow-nb-xl sm:p-8">
+        <div class="flex flex-wrap gap-2">
+          <span class="nb-tag">Writing</span>
+          <span class="nb-tag bg-nb-yellow">{data.length} posts</span>
+          <span class="nb-tag bg-nb-pink">{allTags.length} topics</span>
         </div>
-        <label class="block">
+        <h1 class="mt-4 text-5xl font-black uppercase tracking-tight sm:text-6xl">Blog</h1>
+        <p class="mt-3 max-w-2xl text-lg font-semibold leading-7">
+          Technical notes on Kubernetes, GitOps, cloud infrastructure, automation, and platform engineering.
+        </p>
+        <label class="mt-6 block">
           <span class="sr-only">Search posts</span>
-          <input
-            id="post-search"
-            type="search"
-            placeholder="Search posts..."
-            class="w-full rounded-lg border border-black/10 bg-white px-4 py-2.5 text-sm text-black outline-none transition placeholder:text-black/35 focus:border-[#1D88B5]/50 dark:border-white/10 dark:bg-white/[0.03] dark:text-white dark:placeholder:text-white/35"
-          />
+          <input id="post-search" type="search" placeholder="Search posts… (press / to focus)" class="nb-input !border-nb-border !bg-white !text-nb-ink" />
         </label>
       </section>
 
-      <div id="empty-state" class="animate hidden rounded-lg border border-black/10 bg-white p-5 text-sm dark:border-white/10 dark:bg-white/[0.03]">
-        No posts match your search.
+      {allTags.length > 0 && (
+        <section class="animate space-y-3" aria-label="Filter by topic">
+          <div class="text-xs font-black uppercase tracking-wider">Filter by topic</div>
+          <div class="flex flex-wrap gap-2" id="tag-filters">
+            <button type="button" data-tag="" aria-pressed="true" class="tag-filter nb-chip nb-press text-xs uppercase">All</button>
+            {allTags.map(([tag, count]) => (
+              <button type="button" data-tag={tag.toLowerCase()} aria-pressed="false" class="tag-filter nb-chip nb-press text-xs uppercase">
+                {tag} <span class="rounded bg-nb-ink px-1 font-mono text-[0.65rem] text-nb-yellow">{count}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div id="empty-state" class="animate nb-card nb-on-color hidden bg-nb-pink p-5 font-bold">
+        No posts match — try another search or topic.
       </div>
 
-      <div class="space-y-4">
+      <div class="space-y-12">
         {years.map(year => (
-          <section class="animate space-y-4" data-year-section>
-            <div class="font-semibold text-black dark:text-white">
-              {year}
-            </div>
-            <div>
-              <ul class="flex flex-col gap-4">
-                {
-                  posts[year].map((post) => (
-                    <li data-post data-search={`${post.data.title} ${post.data.description} ${(post.data.tags ?? []).join(" ")}`.toLowerCase()}>
-                      <ArrowCard entry={post}/>
-                    </li>
-                  ))
-                }
-              </ul>
-            </div>
+          <section class="animate space-y-5" data-year-section>
+            <h2 class="nb-h2 yellow">{year}</h2>
+            <ul class="nb-cycle flex flex-col gap-4">
+              {posts[year].map((post) => (
+                <li
+                  data-post
+                  data-tags={(post.data.tags ?? []).map(t => t.toLowerCase()).join("|")}
+                  data-search={`${post.data.title} ${post.data.description} ${(post.data.tags ?? []).join(" ")}`.toLowerCase()}
+                >
+                  <ArrowCard entry={post}/>
+                </li>
+              ))}
+            </ul>
           </section>
         ))}
       </div>
@@ -76,29 +92,65 @@ const years = Object.keys(posts).sort((a, b) => parseInt(b) - parseInt(a));
   </Container>
 </PageLayout>
 
+<style>
+  .tag-filter[aria-pressed="true"] {
+    background-color: #111111;
+    color: #ffe14d;
+  }
+</style>
+
 <script>
-  const searchInput = document.querySelector<HTMLInputElement>("#post-search");
-  const emptyState = document.querySelector<HTMLElement>("#empty-state");
-  const posts = Array.from(document.querySelectorAll<HTMLElement>("[data-post]"));
-  const yearSections = Array.from(document.querySelectorAll<HTMLElement>("[data-year-section]"));
+  const initBlogIndex = () => {
+    const searchInput = document.querySelector<HTMLInputElement>("#post-search");
+    if (!searchInput || searchInput.dataset.bound === "true") return;
+    searchInput.dataset.bound = "true";
 
-  const applySearch = () => {
-    const query = searchInput?.value.trim().toLowerCase() ?? "";
-    let visibleCount = 0;
+    const emptyState = document.querySelector<HTMLElement>("#empty-state");
+    const posts = Array.from(document.querySelectorAll<HTMLElement>("[data-post]"));
+    const yearSections = Array.from(document.querySelectorAll<HTMLElement>("[data-year-section]"));
+    const filters = Array.from(document.querySelectorAll<HTMLButtonElement>(".tag-filter"));
+    let activeTag = "";
 
-    posts.forEach((post) => {
-      const visible = !query || post.dataset.search?.includes(query);
-      post.hidden = !visible;
-      if (visible) visibleCount += 1;
+    const apply = () => {
+      const query = searchInput.value.trim().toLowerCase();
+      let visibleCount = 0;
+      posts.forEach((post) => {
+        const matchesQuery = !query || post.dataset.search?.includes(query);
+        const matchesTag = !activeTag || (post.dataset.tags ?? "").split("|").includes(activeTag);
+        const visible = Boolean(matchesQuery && matchesTag);
+        post.hidden = !visible;
+        if (visible) visibleCount += 1;
+      });
+      yearSections.forEach((section) => {
+        section.hidden = section.querySelectorAll("[data-post]:not([hidden])").length === 0;
+      });
+      emptyState?.classList.toggle("hidden", visibleCount !== 0);
+    };
+
+    filters.forEach((button) => {
+      button.addEventListener("click", () => {
+        activeTag = button.dataset.tag ?? "";
+        filters.forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+        apply();
+      });
     });
 
-    yearSections.forEach((section) => {
-      const visiblePosts = section.querySelectorAll<HTMLElement>("[data-post]:not([hidden])");
-      section.hidden = visiblePosts.length === 0;
-    });
-
-    emptyState?.classList.toggle("hidden", visibleCount !== 0);
+    searchInput.addEventListener("input", apply);
   };
 
-  searchInput?.addEventListener("input", applySearch);
+  const win = window as Window & { blogSlashBound?: boolean };
+  if (!win.blogSlashBound) {
+    win.blogSlashBound = true;
+    document.addEventListener("keydown", (event) => {
+      const target = event.target as HTMLElement | null;
+      if (event.key === "/" && target?.tagName !== "INPUT" && target?.tagName !== "TEXTAREA") {
+        const input = document.querySelector<HTMLInputElement>("#post-search");
+        if (!input) return;
+        event.preventDefault();
+        input.focus();
+      }
+    });
+  }
+
+  document.addEventListener("astro:page-load", initBlogIndex);
 </script>

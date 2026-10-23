@@ -19,23 +19,28 @@ const work = await Promise.all(
 <PageLayout title={WORK.TITLE} description={WORK.DESCRIPTION}>
   <Container>
     <div class="space-y-10">
-      <div class="animate font-semibold text-black dark:text-white">
-        Work
-      </div>
-      <ul class="flex flex-col space-y-4">
+      <section class="animate nb-on-color rounded-nb border-4 border-nb-border bg-nb-green p-6 shadow-nb-xl sm:p-8">
+        <span class="nb-tag">{work.length} roles</span>
+        <h1 class="mt-2 text-5xl font-black uppercase tracking-tight sm:text-6xl">Work</h1>
+        <p class="mt-3 max-w-2xl text-lg font-semibold leading-7">Where I have built and operated platforms — newest first.</p>
+      </section>
+      <ul class="nb-cycle flex flex-col gap-6">
         { 
           work.map(entry => (
-            <li class="animate">
-              <div class="text-sm opacity-75">
-                {dateRange(entry.data.dateStart, entry.data.dateEnd)}
+            <li class="animate nb-card nb-accent nb-accent-border border-l-[12px] p-5 sm:p-6">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="rounded border-2 border-nb-border bg-nb-yellow px-2 font-mono text-xs font-black uppercase text-nb-ink">
+                  {dateRange(entry.data.dateStart, entry.data.dateEnd)}
+                </span>
+                {entry.data.dateEnd === "Current" && <span class="nb-tag bg-nb-green !py-0">Now</span>}
               </div>
-              <div class="font-semibold text-black dark:text-white">
+              <div class="mt-2 text-xl font-black text-nb-ink dark:text-nb-ink-dark">
                 {entry.data.company}
               </div>
-              <div class="text-sm opacity-75">
+              <div class="text-sm font-bold nb-muted">
                 {entry.data.role}
               </div>
-              <article>
+              <article class="mt-3">
                 <entry.Content />
               </article>
             </li>

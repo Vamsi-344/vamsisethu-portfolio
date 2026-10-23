@@ -2,6 +2,9 @@
 import "../styles/global.css";
 import "@fontsource/inter/latin-400.css";
 import "@fontsource/inter/latin-600.css";
+import "@fontsource/inter/latin-700.css";
+import "@fontsource/inter/latin-800.css";
+import "@fontsource/inter/latin-900.css";
 import "@fontsource/lora/400.css";
 import "@fontsource/lora/600.css";
 import inter400 from "@fontsource/inter/files/inter-latin-400-normal.woff2";
@@ -35,7 +38,7 @@ const { title, description, image = "/og.svg", structuredData, type = "website",
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <link rel="manifest" href="/site.webmanifest" />
-<meta name="theme-color" content="#1c1917" />
+<meta name="theme-color" content="#ffe14d" />
 <meta name="generator" content={Astro.generator} />
 
 <!-- Font preloads -->
@@ -138,13 +141,37 @@ const { title, description, image = "/og.svg", structuredData, type = "website",
   }
 
   function animate() {
-    const animateElements = document.querySelectorAll(".animate");
+    const animateElements = Array.from(document.querySelectorAll(".animate"));
+    if (!animateElements.length) return;
 
-    animateElements.forEach((element, index) => {
-      setTimeout(() => {
-        element.classList.add("show");
-      }, index * 150);
-    });
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || !("IntersectionObserver" in window)) {
+      animateElements.forEach((el) => el.classList.add("show"));
+      return;
+    }
+
+    // Reveal as each element scrolls into view, with a short stagger
+    // scoped to the current batch so elements never wait on the whole page.
+    let revealed = 0;
+    let lastTick = 0;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const now = performance.now();
+        if (now - lastTick > 400) revealed = 0; // reset stagger between batches
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const el = entry.target;
+          const delay = Math.min(revealed, 4) * 90; // cap cascade at ~360ms
+          revealed += 1;
+          lastTick = now;
+          setTimeout(() => el.classList.add("show"), delay);
+          observer.unobserve(el);
+        });
+      },
+      { rootMargin: "0px 0px -8% 0px", threshold: 0.1 }
+    );
+
+    animateElements.forEach((el) => observer.observe(el));
   }
 
   function onScroll() {

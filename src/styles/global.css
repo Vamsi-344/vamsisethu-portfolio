@@ -2,13 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------ */
+/* Tokens                                                              */
+/* ------------------------------------------------------------------ */
 html {
   overflow-y: scroll;
   color-scheme: light;
+  scroll-behavior: smooth;
+  --nb-shadow: #111111;
+  --nb-dot: rgba(17, 17, 17, 0.2);
 }
 
 html.dark {
   color-scheme: dark;
+  --nb-shadow: #000000;
+  --nb-dot: rgba(255, 253, 245, 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 
 html,
@@ -19,73 +32,325 @@ body {
 body {
   @apply font-sans antialiased;
   @apply flex flex-col;
-  @apply bg-[#f8f6f1] dark:bg-[#10100f];
-  @apply text-black/55 dark:text-white/75;
+  @apply bg-nb-bg text-nb-ink dark:bg-nb-bg-dark dark:text-nb-ink-dark;
+  background-image: radial-gradient(var(--nb-dot) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-attachment: fixed;
+}
+
+::selection {
+  @apply bg-nb-pink text-nb-ink;
 }
 
 header {
-  @apply fixed top-0 left-0 right-0 z-50 py-5;
-  @apply bg-[#f8f6f1]/85 dark:bg-[#10100f]/75;
-  @apply backdrop-blur-sm saturate-200;
+  @apply fixed top-0 left-0 right-0 z-50 py-3;
+  @apply bg-nb-yellow text-nb-ink;
+  @apply border-b-[3px] border-nb-border;
 }
 
 main {
-  @apply flex-1 py-32;
+  @apply flex-1 pt-40 pb-24 md:pt-32;
 }
 
 footer {
-  @apply py-5 text-sm;
-}
-
-article {
-  @apply max-w-full prose dark:prose-invert prose-img:mx-auto prose-img:my-auto;
-  @apply prose-headings:font-semibold prose-p:font-serif;
-  @apply prose-headings:text-black prose-headings:dark:text-white;
+  @apply py-6 text-sm font-semibold;
+  @apply border-t-[3px] border-nb-border bg-nb-bg dark:border-nb-border-dark dark:bg-nb-bg-dark;
 }
 
 :focus-visible {
-  @apply outline outline-2 outline-offset-2 outline-[#1D88B5];
+  @apply outline outline-[3px] outline-offset-2 outline-nb-border dark:outline-nb-yellow;
+}
+
+/* ------------------------------------------------------------------ */
+/* Primitives                                                          */
+/* ------------------------------------------------------------------ */
+@layer components {
+  .nb-card {
+    @apply rounded-nb border-[3px] border-nb-border bg-nb-card shadow-nb;
+    @apply dark:border-nb-border-dark dark:bg-nb-card-dark;
+  }
+
+  /* Big paper panel, like the plan docs' <main> */
+  .nb-panel {
+    @apply rounded-nb border-4 border-nb-border bg-nb-card shadow-nb-xl;
+    @apply dark:border-nb-border-dark dark:bg-nb-card-dark;
+  }
+
+  .nb-lift {
+    @apply transition-[transform,box-shadow,background-color] duration-200 ease-out;
+    @apply hover:-translate-x-[2px] hover:-translate-y-[2px] hover:shadow-nb-lg;
+    @apply active:translate-x-0 active:translate-y-0 active:shadow-nb-xs active:duration-75;
+  }
+
+  /* Press-in hover, like the plan docs' TOC chips */
+  .nb-press {
+    @apply transition-[transform,box-shadow,background-color] duration-150 ease-out;
+    @apply hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none;
+    @apply active:scale-[0.97];
+  }
+
+  .nb-card-interactive {
+    @apply nb-card nb-lift;
+  }
+
+  /* Coloured surfaces always carry dark ink, in both themes */
+  .nb-on-color,
+  .nb-on-color :where(h1, h2, h3, h4, p, li, span, div, strong, a, small) {
+    color: #111111 !important;
+  }
+  .nb-on-color { @apply border-nb-border !important; }
+
+  .nb-btn {
+    @apply inline-flex items-center justify-center gap-2 no-underline;
+    @apply rounded-nb border-[3px] border-nb-border bg-nb-yellow px-4 py-2 font-extrabold text-nb-ink shadow-nb-sm;
+    @apply nb-lift;
+  }
+  .nb-btn-pink { @apply nb-btn bg-nb-pink; }
+  .nb-btn-blue, .nb-btn-cyan { @apply nb-btn bg-nb-blue; }
+  .nb-btn-green { @apply nb-btn bg-nb-green; }
+  .nb-btn-white { @apply nb-btn bg-white; }
+
+  /* Pill tag */
+  .nb-tag {
+    @apply inline-flex items-center gap-1.5 rounded-full border-[3px] border-nb-border bg-white px-2.5 py-0.5;
+    @apply text-xs font-extrabold uppercase tracking-wide text-nb-ink no-underline;
+    @apply transition-transform duration-150 ease-out hover:-translate-y-0.5;
+  }
+
+  .nb-chip {
+    @apply inline-flex items-center gap-2 rounded-nb border-[3px] border-nb-border bg-white px-3 py-1.5 font-bold text-nb-ink shadow-nb-xs;
+  }
+
+  /* Section heading: inverted ink label with a coloured hard shadow */
+  .nb-h2 {
+    @apply inline-block rounded-nb bg-nb-ink px-3 py-1 text-xl font-black uppercase tracking-tight text-nb-bg;
+    @apply dark:bg-nb-ink-dark dark:text-nb-ink;
+    box-shadow: 5px 5px 0 0 #ff8fab;
+  }
+  .nb-h2.blue { box-shadow: 5px 5px 0 0 #7cc8ff; }
+  .nb-h2.green { box-shadow: 5px 5px 0 0 #8ef0a5; }
+  .nb-h2.yellow { box-shadow: 5px 5px 0 0 #ffe14d; }
+  .nb-h2.purple { box-shadow: 5px 5px 0 0 #c9a7ff; }
+  .nb-h2.orange { box-shadow: 5px 5px 0 0 #ffb057; }
+
+  /* Hand-drawn marker highlight */
+  .nb-mark {
+    @apply rounded-sm px-1 text-nb-ink;
+    background: linear-gradient(transparent 12%, #ffe14d 12%, #ffe14d 92%, transparent 92%);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .nb-mark.pink { background: linear-gradient(transparent 12%, #ff8fab 12%, #ff8fab 92%, transparent 92%); }
+  .nb-mark.blue { background: linear-gradient(transparent 12%, #7cc8ff 12%, #7cc8ff 92%, transparent 92%); }
+  .nb-mark.green { background: linear-gradient(transparent 12%, #8ef0a5 12%, #8ef0a5 92%, transparent 92%); }
+
+  .nb-input {
+    @apply w-full rounded-nb border-[3px] border-nb-border bg-white px-4 py-2.5 font-semibold text-nb-ink shadow-nb-sm outline-none;
+    @apply placeholder:text-nb-ink/45 focus:bg-nb-zebra focus:shadow-nb;
+    @apply dark:border-nb-border-dark dark:bg-nb-card-dark dark:text-nb-ink-dark dark:placeholder:text-nb-ink-dark/40 dark:focus:bg-nb-card-dark;
+  }
+
+  .nb-muted {
+    @apply text-nb-ink/70 dark:text-nb-ink-dark/70;
+  }
+
+  /* Cycling accent colours for lists of cards */
+  .nb-cycle > :nth-child(6n + 1) .nb-accent, .nb-cycle > :nth-child(6n + 1).nb-accent { --nb-accent: #ff8fab; }
+  .nb-cycle > :nth-child(6n + 2) .nb-accent, .nb-cycle > :nth-child(6n + 2).nb-accent { --nb-accent: #7cc8ff; }
+  .nb-cycle > :nth-child(6n + 3) .nb-accent, .nb-cycle > :nth-child(6n + 3).nb-accent { --nb-accent: #8ef0a5; }
+  .nb-cycle > :nth-child(6n + 4) .nb-accent, .nb-cycle > :nth-child(6n + 4).nb-accent { --nb-accent: #ffb057; }
+  .nb-cycle > :nth-child(6n + 5) .nb-accent, .nb-cycle > :nth-child(6n + 5).nb-accent { --nb-accent: #c9a7ff; }
+  .nb-cycle > :nth-child(6n + 6) .nb-accent, .nb-cycle > :nth-child(6n + 6).nb-accent { --nb-accent: #ffe14d; }
+  .nb-accent-bg { background-color: var(--nb-accent, #ffe14d); }
+  .nb-accent-border { border-left-color: var(--nb-accent, #ffe14d) !important; }
+
+  /* Slight tilt that straightens on hover */
+  .nb-tilt-l, .nb-tilt-r { transition: transform .15s ease-out, box-shadow .15s ease-out; }
+  .nb-tilt-l { transform: rotate(-0.7deg); }
+  .nb-tilt-r { transform: rotate(0.7deg); }
+  .nb-tilt-l:hover, .nb-tilt-r:hover {
+    transform: translate(-3px, -3px) rotate(0);
+    box-shadow: 9px 9px 0 0 var(--nb-shadow);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Long-form content (blog posts, projects, work entries)              */
+/* ------------------------------------------------------------------ */
+article {
+  @apply max-w-full prose prose-neutral dark:prose-invert prose-img:mx-auto prose-img:my-auto;
+  @apply prose-headings:font-black prose-headings:text-nb-ink prose-headings:dark:text-nb-ink-dark;
+  @apply prose-p:text-nb-ink/85 dark:prose-p:text-nb-ink-dark/85;
+  @apply prose-li:text-nb-ink/85 dark:prose-li:text-nb-ink-dark/85;
+  @apply prose-strong:font-extrabold prose-strong:text-nb-ink prose-strong:dark:text-nb-ink-dark;
 }
 
 @layer utilities {
   article a {
-    @apply font-sans text-current underline underline-offset-2;
-    @apply decoration-black/15 dark:decoration-white/30;
-    @apply transition-colors duration-300 ease-in-out;
+    @apply font-bold text-current underline decoration-nb-pink decoration-[3px] underline-offset-[3px];
+    @apply transition-colors duration-100;
   }
   article a:hover {
-    @apply text-black dark:text-white;
-    @apply decoration-black/25 dark:decoration-white/50;
+    @apply bg-nb-yellow text-nb-ink decoration-nb-ink;
   }
 
-  article pre {
-    @apply rounded-lg border border-black/10 bg-black/[0.03] p-4 shadow-none dark:border-white/10 dark:bg-white/[0.04];
+  /* Headings */
+  article h2 {
+    @apply mt-14 inline-block rounded-nb bg-nb-ink px-3 py-1 text-2xl uppercase leading-tight tracking-tight text-nb-bg;
+    @apply dark:bg-nb-ink-dark dark:text-nb-ink;
+    box-shadow: 5px 5px 0 0 #ff8fab;
+    scroll-margin-top: 8rem;
+  }
+  article h2:nth-of-type(3n + 2) { box-shadow: 5px 5px 0 0 #7cc8ff; }
+  article h2:nth-of-type(3n + 3) { box-shadow: 5px 5px 0 0 #8ef0a5; }
+
+  article h3 {
+    @apply mt-10 border-l-[8px] border-nb-yellow pl-3 text-lg uppercase tracking-tight;
+    scroll-margin-top: 8rem;
+  }
+  article h4 {
+    @apply uppercase tracking-wide;
+    scroll-margin-top: 8rem;
   }
 
-  article pre code {
-    @apply bg-transparent p-0 text-sm text-black/80 dark:text-white/80;
+  article p, article li {
+    @apply text-[1.05rem] leading-[1.85];
+  }
+  article p { @apply my-6; }
+  article ul, article ol { @apply my-6 space-y-2; }
+
+  /* Lede: the opening paragraph reads larger, like an editorial standfirst */
+  article > p:first-of-type {
+    @apply text-[1.2rem] font-medium leading-[1.75] text-nb-ink dark:text-nb-ink-dark;
   }
 
+  /* Lists */
+  article ul > li { list-style-type: square; }
+  article ul > li::marker { color: #ff8fab; font-size: 1.15em; }
+  article ol > li::marker { @apply font-black text-nb-ink dark:text-nb-ink-dark; }
+
+  /* Callouts */
+  article blockquote {
+    @apply not-italic rounded-nb border-[3px] border-nb-border bg-nb-pink px-5 py-3 font-semibold shadow-nb;
+    quotes: none;
+  }
+  article blockquote p,
+  article blockquote li,
+  article blockquote strong,
+  article blockquote a {
+    @apply text-nb-ink;
+  }
+  article blockquote p::before,
+  article blockquote p::after { content: none; }
+
+  /* Inline code */
   article code:not(pre code) {
-    @apply rounded border border-black/10 bg-black/[0.04] px-1 py-0.5 text-[0.85em] font-normal text-black/75 before:content-none after:content-none dark:border-white/10 dark:bg-white/[0.06] dark:text-white/80;
+    @apply rounded border-2 border-nb-border bg-nb-yellow px-1.5 py-px text-[0.85em] font-bold text-nb-ink before:content-none after:content-none;
   }
 
+  /* Code blocks (Shiki) */
+  article pre {
+    @apply rounded-nb border-[3px] border-nb-border p-4 text-sm leading-relaxed;
+    background-color: #111111 !important;
+    box-shadow: 6px 6px 0 0 #c9a7ff;
+  }
+  article pre code {
+    @apply bg-transparent p-0 text-sm;
+  }
+  .dark article pre { @apply border-nb-border-dark; }
+  article pre.mermaid {
+    @apply m-0 border-0 p-0 shadow-none;
+    background-color: transparent !important;
+  }
+
+  /* Code block wrapper added by the enhancer script */
+  .nb-code {
+    @apply relative my-7;
+  }
+  .nb-code > pre {
+    @apply m-0 rounded-t-none;
+  }
+  .nb-code-bar {
+    @apply flex items-center justify-between gap-2 rounded-t-nb border-[3px] border-b-0 border-nb-border bg-nb-purple px-3 py-1.5;
+    @apply dark:border-nb-border-dark;
+  }
+  .nb-code-lang {
+    @apply font-mono text-xs font-black uppercase tracking-wider text-nb-ink;
+  }
+  .nb-code-copy {
+    @apply rounded border-2 border-nb-border bg-white px-2 py-0.5 text-xs font-extrabold uppercase text-nb-ink shadow-nb-xs;
+    @apply transition-transform duration-100 hover:translate-x-px hover:translate-y-px hover:shadow-none;
+  }
+  .nb-code-copy.copied { @apply bg-nb-green; }
+
+  /* Tables */
+  .nb-table-wrap {
+    @apply my-8 overflow-x-auto pb-3 pr-3;
+  }
+  article table {
+    @apply my-0 w-full rounded-nb border-[3px] border-nb-border bg-white text-sm shadow-nb;
+    @apply dark:border-nb-border-dark dark:bg-nb-card-dark;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+  }
+  article thead th {
+    @apply border-b-[3px] border-r-2 border-nb-border bg-nb-blue px-3 py-2 text-xs font-black uppercase tracking-wide text-nb-ink;
+    @apply dark:border-nb-border-dark;
+  }
+  article tbody td {
+    @apply border-b-2 border-r-2 border-nb-border px-3 py-2 align-top;
+    @apply dark:border-nb-border-dark/40;
+  }
+  article th:last-child, article td:last-child { border-right: 0; }
+  article tbody tr:last-child td { border-bottom: 0; }
+  article tbody tr:nth-child(even) td { @apply bg-nb-zebra dark:bg-white/[0.04]; }
+  article tbody tr:hover td { @apply bg-nb-yellow/60 dark:bg-nb-yellow/10; }
+
+  /* Media + rules */
+  article img {
+    @apply rounded-nb border-[3px] border-nb-border shadow-nb dark:border-nb-border-dark;
+  }
+  article hr {
+    @apply my-12 border-t-[3px] border-dashed border-nb-border dark:border-nb-border-dark;
+  }
+
+  /* Heading anchor added by the enhancer script */
+  .nb-anchor {
+    @apply ml-2 inline-flex size-7 -translate-y-0.5 items-center justify-center rounded border-2 border-nb-border bg-nb-yellow align-middle text-sm font-black text-nb-ink no-underline opacity-0 shadow-nb-xs;
+    @apply transition-opacity duration-100;
+  }
+  article h2:hover .nb-anchor,
+  article h3:hover .nb-anchor,
+  .nb-anchor:focus-visible { @apply opacity-100; }
+  article h2 .nb-anchor { @apply text-nb-ink; }
+
+  /* TOC */
   .toc-link {
-    @apply transition-[border-color,color,background-color] duration-200 ease-out;
+    @apply relative transition-[background-color,color,transform] duration-150 ease-out;
   }
-
   .toc-link.is-active {
-    @apply border-[#1D88B5] text-black dark:text-white;
+    @apply translate-x-1 border-nb-border bg-nb-yellow font-extrabold text-nb-ink;
+  }
+  .toc-link.is-active::before {
+    content: "";
+    @apply absolute -left-2 top-1/2 h-4 w-1 -translate-y-1/2 rounded-full bg-nb-pink;
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Motion                                                              */
+/* ------------------------------------------------------------------ */
 .animate {
-  @apply opacity-0 translate-y-3;
-  @apply transition-all duration-700 ease-out;
+  @apply opacity-0;
+  transform: translateY(14px);
+  transition: opacity 0.5s ease-out, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
 }
 
 .animate.show {
-  @apply opacity-100 translate-y-0;
+  @apply opacity-100;
+  transform: translateY(0);
 }
 
 html #back-to-top {
