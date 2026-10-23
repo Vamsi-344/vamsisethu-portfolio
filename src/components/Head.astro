@@ -5,10 +5,14 @@ import "@fontsource/inter/latin-600.css";
 import "@fontsource/inter/latin-700.css";
 import "@fontsource/inter/latin-800.css";
 import "@fontsource/inter/latin-900.css";
+import "@fontsource/space-grotesk/latin-500.css";
+import "@fontsource/space-grotesk/latin-600.css";
+import "@fontsource/space-grotesk/latin-700.css";
 import "@fontsource/lora/400.css";
 import "@fontsource/lora/600.css";
 import inter400 from "@fontsource/inter/files/inter-latin-400-normal.woff2";
 import inter600 from "@fontsource/inter/files/inter-latin-600-normal.woff2";
+import grotesk700 from "@fontsource/space-grotesk/files/space-grotesk-latin-700-normal.woff2";
 import lora400 from "@fontsource/lora/files/lora-latin-400-normal.woff2";
 import lora600 from "@fontsource/lora/files/lora-latin-600-normal.woff2";
 
@@ -44,6 +48,7 @@ const { title, description, image = "/og.svg", structuredData, type = "website",
 <!-- Font preloads -->
 <link rel="preload" href={inter400} as="font" type="font/woff2" crossorigin/>
 <link rel="preload" href={inter600} as="font" type="font/woff2" crossorigin/>
+<link rel="preload" href={grotesk700} as="font" type="font/woff2" crossorigin/>
 <link rel="preload" href={lora400} as="font" type="font/woff2" crossorigin/>
 <link rel="preload" href={lora600} as="font" type="font/woff2" crossorigin/>
 
@@ -100,10 +105,10 @@ const { title, description, image = "/og.svg", structuredData, type = "website",
 </script>
 
 <script is:inline>
-  function init() {
+  function init(instant) {
     preloadTheme();
     onScroll();
-    animate();
+    animate(instant);
 
     const backToTop = document.getElementById("back-to-top");
     backToTop?.addEventListener("click", (event) => scrollToTop(event));
@@ -140,18 +145,24 @@ const { title, description, image = "/og.svg", structuredData, type = "website",
     document.addEventListener("scroll", onScroll);
   }
 
-  function animate() {
+  function animate(instant) {
     const animateElements = Array.from(document.querySelectorAll(".animate"));
     if (!animateElements.length) return;
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || !("IntersectionObserver" in window)) {
+    // On view-transition navigations (instant), or reduced motion, or no
+    // observer support: reveal everything immediately. The entrance cascade
+    // is only meaningful on a true fresh page load.
+    if (instant || reduce || !("IntersectionObserver" in window)) {
       animateElements.forEach((el) => el.classList.add("show"));
       return;
     }
 
-    // Reveal as each element scrolls into view, with a short stagger
-    // scoped to the current batch so elements never wait on the whole page.
+    // Reveal as soon as an element's top edge nears the viewport, with a
+    // short stagger scoped to the current batch so nothing waits on the page.
+    // A positive bottom rootMargin pre-triggers ~120px before it scrolls in,
+    // and threshold 0 means the first sliver counts (tall sections no longer
+    // wait for 10% of their height to appear).
     let revealed = 0;
     let lastTick = 0;
     const observer = new IntersectionObserver(
@@ -161,17 +172,25 @@ const { title, description, image = "/og.svg", structuredData, type = "website",
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
           const el = entry.target;
-          const delay = Math.min(revealed, 4) * 90; // cap cascade at ~360ms
+          const delay = Math.min(revealed, 3) * 70; // cap cascade at ~210ms
           revealed += 1;
           lastTick = now;
           setTimeout(() => el.classList.add("show"), delay);
           observer.unobserve(el);
         });
       },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.1 }
+      { rootMargin: "0px 0px 120px 0px", threshold: 0 }
     );
 
-    animateElements.forEach((el) => observer.observe(el));
+    // Anything already in view (or above) on load reveals immediately.
+    const vh = window.innerHeight;
+    animateElements.forEach((el) => {
+      if (el.getBoundingClientRect().top < vh) {
+        el.classList.add("show");
+      } else {
+        observer.observe(el);
+      }
+    });
   }
 
   function onScroll() {
@@ -228,7 +247,7 @@ function toggleTheme(dark) {
     }
   }
 
-  document.addEventListener("DOMContentLoaded", () => init());
-  document.addEventListener("astro:after-swap", () => init());
+  document.addEventListener("DOMContentLoaded", () => init(false));
+  document.addEventListener("astro:after-swap", () => init(true));
   preloadTheme();
 </script>

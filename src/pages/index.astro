@@ -163,7 +163,7 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
 
 <PageLayout title={HOME.TITLE} description={HOME.DESCRIPTION} structuredData={personSchema}>
   <Container>
-    <div class="space-y-24 md:space-y-28">
+    <div class="space-y-14 md:space-y-16">
       <!-- Hero -->
       <section class="animate relative overflow-hidden rounded-nb border-4 border-nb-border bg-nb-yellow p-7 text-nb-ink shadow-nb-xl sm:p-10 md:p-12">
         <!-- decorative floating shapes (behind content, clipped by overflow-hidden) -->
@@ -202,7 +202,7 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
       <!-- Stats -->
       <section class="animate grid grid-cols-2 gap-4 md:grid-cols-4" aria-label="At a glance">
         {stats.map(stat => (
-          <a href={stat.href} class={`nb-card-interactive nb-on-color ${stat.color} p-4 text-center no-underline`}>
+          <a href={stat.href} class={`nb-accent-card-interactive nb-on-color ${stat.color} p-4 text-center no-underline`}>
             <span class="block text-xs font-black uppercase tracking-wider">{stat.label}</span>
             <span class="my-1 block text-4xl font-black leading-none">{stat.value}</span>
             <span class="block text-xs font-semibold">{stat.note}</span>
@@ -218,7 +218,7 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
         </div>
         <div class="grid gap-5 md:grid-cols-3">
           {focusAreas.map(area => (
-            <div class={`nb-card nb-on-color ${area.color} ${area.tilt} p-5`}>
+            <div class={`nb-accent-card nb-on-color ${area.color} ${area.tilt} p-5`}>
               <span class="font-mono text-xs font-black">{area.tag}</span>
               <h3 class="mt-1 text-lg font-black uppercase leading-tight tracking-tight">{area.title}</h3>
               <p class="mt-2 text-sm font-medium leading-6">{area.body}</p>

@@ -50,7 +50,7 @@ const certsSchema = {
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`Verify ${CERTS.KUBESTRONAUT.NAME} on Credly`}
-          class="nb-card-interactive nb-on-color group relative block bg-nb-yellow p-6 no-underline"
+          class="nb-accent-card-interactive nb-on-color group relative block bg-nb-yellow p-6 no-underline"
         >
           <span class="absolute -right-3 -top-4 rotate-6 rounded-nb border-[3px] border-nb-border bg-nb-pink px-3 py-1 font-mono text-xs font-black uppercase shadow-nb-xs">★ Headline</span>
           <div class="text-2xl font-black uppercase tracking-tight">{CERTS.KUBESTRONAUT.NAME}</div>
@@ -70,7 +70,7 @@ const certsSchema = {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Verify ${cert.NAME} on Credly`}
-                class={`nb-card-interactive nb-on-color flex h-full flex-col p-5 no-underline ${["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "bg-nb-purple"][i % 5]}`}
+                class={`nb-accent-card-interactive nb-on-color flex h-full flex-col p-5 no-underline ${["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "bg-nb-purple"][i % 5]}`}
               >
                 <span class="font-mono text-xs font-black">{String(i + 1).padStart(2, "0")}</span>
                 <div class="mt-1 font-black leading-snug">{cert.NAME}</div>

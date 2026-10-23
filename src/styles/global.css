@@ -16,7 +16,14 @@ html {
 html.dark {
   color-scheme: dark;
   --nb-shadow: #000000;
-  --nb-dot: rgba(255, 253, 245, 0.12);
+  --nb-dot: rgba(245, 243, 234, 0.18);
+}
+
+/* In dark mode a pure-black hard shadow vanishes against the near-black
+   background, killing the signature offset. Use the cream line colour so
+   the offset still reads as a crisp edge. */
+html.dark {
+  --nb-shadow: #f5f3ea;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -24,9 +31,26 @@ html.dark {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 
+/* Disable Astro's view-transition morph: keep the fast SPA swap, drop the
+   cross-fade/slide so internal navigation (e.g. the logo click) is instant. */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation: none !important;
+  mix-blend-mode: normal !important;
+}
+
 html,
 body {
   @apply size-full;
+}
+
+/* Display face (Space Grotesk) for headings and chunky labels; Inter for body */
+h1, h2, h3,
+.nb-h2,
+.hero-accent,
+article h2, article h3, article h4 {
+  font-family: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
@@ -49,7 +73,7 @@ header {
 }
 
 main {
-  @apply flex-1 pt-40 pb-24 md:pt-32;
+  @apply flex-1 pt-28 pb-24;
 }
 
 footer {
@@ -99,6 +123,18 @@ footer {
     color: #111111 !important;
   }
   .nb-on-color { @apply border-nb-border !important; }
+
+  /* A bright-accent card that KEEPS its accent background in dark mode.
+     Use this (not nb-card) whenever the surface is a fixed accent colour
+     with forced dark ink — nb-card's dark:bg override would otherwise turn
+     the surface dark and make the dark ink invisible. */
+  .nb-accent-card {
+    @apply rounded-nb border-[3px] border-nb-border shadow-nb;
+    @apply dark:border-nb-border-dark;
+  }
+  .nb-accent-card-interactive {
+    @apply nb-accent-card nb-lift;
+  }
 
   .nb-btn {
     @apply inline-flex items-center justify-center gap-2 no-underline;
@@ -196,17 +232,17 @@ article {
 
   /* Headings */
   article h2 {
-    @apply mt-14 inline-block rounded-nb bg-nb-ink px-3 py-1 text-2xl uppercase leading-tight tracking-tight text-nb-bg;
+    @apply mt-10 inline-block rounded-nb bg-nb-ink px-3 py-1 text-2xl uppercase leading-tight tracking-tight text-nb-bg;
     @apply dark:bg-nb-ink-dark dark:text-nb-ink;
     box-shadow: 5px 5px 0 0 #ff8fab;
-    scroll-margin-top: 8rem;
+    scroll-margin-top: 7rem;
   }
   article h2:nth-of-type(3n + 2) { box-shadow: 5px 5px 0 0 #7cc8ff; }
   article h2:nth-of-type(3n + 3) { box-shadow: 5px 5px 0 0 #8ef0a5; }
 
   article h3 {
-    @apply mt-10 border-l-[8px] border-nb-yellow pl-3 text-lg uppercase tracking-tight;
-    scroll-margin-top: 8rem;
+    @apply mt-7 border-l-[8px] border-nb-yellow pl-3 text-lg uppercase tracking-tight;
+    scroll-margin-top: 7rem;
   }
   article h4 {
     @apply uppercase tracking-wide;
@@ -214,14 +250,14 @@ article {
   }
 
   article p, article li {
-    @apply text-[1.05rem] leading-[1.85];
+    @apply text-[1.02rem] leading-[1.7];
   }
-  article p { @apply my-6; }
-  article ul, article ol { @apply my-6 space-y-2; }
+  article p { @apply my-4; }
+  article ul, article ol { @apply my-4 space-y-1.5; }
 
   /* Lede: the opening paragraph reads larger, like an editorial standfirst */
   article > p:first-of-type {
-    @apply text-[1.2rem] font-medium leading-[1.75] text-nb-ink dark:text-nb-ink-dark;
+    @apply text-[1.12rem] font-medium leading-[1.65] text-nb-ink dark:text-nb-ink-dark;
   }
 
   /* Lists */

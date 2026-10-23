@@ -78,13 +78,13 @@ const shareLinkedIn = `https://www.linkedin.com/sharing/share-offsite/?url=${enc
   <div id="read-progress" class="fixed left-0 top-0 z-[60] h-2 w-full origin-left scale-x-0 border-b-2 border-nb-ink bg-nb-pink" aria-hidden="true"></div>
 
   <div class="mx-auto max-w-screen-xl px-5">
-    <div class="animate mx-auto max-w-[52rem] lg:mx-0 lg:ml-[calc(240px+2.5rem)]">
+    <div class="animate mx-auto max-w-[48rem] lg:mx-0 lg:ml-[calc(240px+2.5rem)]">
       <BackToPrev href="/blog">
         Back to blog
       </BackToPrev>
     </div>
 
-    <div class="mt-8 lg:grid lg:grid-cols-[240px_minmax(0,52rem)] lg:gap-10">
+    <div class="mt-8 lg:grid lg:grid-cols-[240px_minmax(0,48rem)] lg:gap-10">
       <!-- Desktop TOC -->
       <aside class="hidden lg:block">
         {toc.length >= 3 && (
@@ -180,13 +180,13 @@ const shareLinkedIn = `https://www.linkedin.com/sharing/share-offsite/?url=${enc
         {(olderPost || newerPost) && (
           <nav class="animate mt-12 grid gap-5 sm:grid-cols-2" aria-label="Post navigation">
             {olderPost ? (
-              <a href={`/blog/${olderPost.slug}`} class="nb-card-interactive nb-on-color group bg-nb-blue p-5 no-underline">
+              <a href={`/blog/${olderPost.slug}`} class="nb-accent-card-interactive nb-on-color group bg-nb-blue p-5 no-underline">
                 <div class="mb-2 font-mono text-xs font-black uppercase tracking-wider">← Previous</div>
                 <div class="line-clamp-2 font-black leading-snug">{olderPost.data.title}</div>
               </a>
             ) : <div class="hidden sm:block" />}
             {newerPost ? (
-              <a href={`/blog/${newerPost.slug}`} class="nb-card-interactive nb-on-color group bg-nb-green p-5 no-underline sm:text-right">
+              <a href={`/blog/${newerPost.slug}`} class="nb-accent-card-interactive nb-on-color group bg-nb-green p-5 no-underline sm:text-right">
                 <div class="mb-2 font-mono text-xs font-black uppercase tracking-wider">Next →</div>
                 <div class="line-clamp-2 font-black leading-snug">{newerPost.data.title}</div>
               </a>

@@ -10,6 +10,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", ...defaultTheme.fontFamily.sans],
+        display: ["Space Grotesk", "Inter", ...defaultTheme.fontFamily.sans],
         serif: ["Lora", ...defaultTheme.fontFamily.serif],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
@@ -17,14 +18,14 @@ export default {
         nb: {
           // surfaces
           bg: "#fffdf5",
-          "bg-dark": "#22201c",
+          "bg-dark": "#17181c",
           card: "#ffffff",
-          "card-dark": "#181613",
+          "card-dark": "#202228",
           // text / lines
           ink: "#111111",
-          "ink-dark": "#fffdf5",
+          "ink-dark": "#f5f3ea",
           border: "#111111",
-          "border-dark": "#fffdf5",
+          "border-dark": "#f5f3ea",
           // accents (match the plan docs)
           yellow: "#ffe14d",
           pink: "#ff8fab",
