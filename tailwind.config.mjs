@@ -9,7 +9,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", ...defaultTheme.fontFamily.sans],
+        sans: ["Space Grotesk", "Inter", ...defaultTheme.fontFamily.sans],
         display: ["Space Grotesk", "Inter", ...defaultTheme.fontFamily.sans],
         serif: ["Lora", ...defaultTheme.fontFamily.serif],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
