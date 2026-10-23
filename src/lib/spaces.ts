@@ -1,5 +1,5 @@
-export const ACCENT = "#1D88B5";
-export const ENCODED_ACCENT = "%231D88B5";
+export const ACCENT = "#111111";
+export const ENCODED_ACCENT = "%23111111";
 
 export const iconify = (name: string) =>
   `https://api.iconify.design/${name.replace(":", "/")}.svg?color=${ENCODED_ACCENT}`;

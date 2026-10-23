@@ -2,10 +2,18 @@
 import "../styles/global.css";
 import "@fontsource/inter/latin-400.css";
 import "@fontsource/inter/latin-600.css";
+import "@fontsource/inter/latin-700.css";
+import "@fontsource/inter/latin-800.css";
+import "@fontsource/inter/latin-900.css";
+import "@fontsource/space-grotesk/latin-400.css";
+import "@fontsource/space-grotesk/latin-500.css";
+import "@fontsource/space-grotesk/latin-600.css";
+import "@fontsource/space-grotesk/latin-700.css";
 import "@fontsource/lora/400.css";
 import "@fontsource/lora/600.css";
 import inter400 from "@fontsource/inter/files/inter-latin-400-normal.woff2";
 import inter600 from "@fontsource/inter/files/inter-latin-600-normal.woff2";
+import grotesk700 from "@fontsource/space-grotesk/files/space-grotesk-latin-700-normal.woff2";
 import lora400 from "@fontsource/lora/files/lora-latin-400-normal.woff2";
 import lora600 from "@fontsource/lora/files/lora-latin-600-normal.woff2";
 
@@ -35,12 +43,13 @@ const { title, description, image = "/og.svg", structuredData, type = "website",
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <link rel="manifest" href="/site.webmanifest" />
-<meta name="theme-color" content="#1c1917" />
+<meta name="theme-color" content="#ffe14d" />
 <meta name="generator" content={Astro.generator} />
 
 <!-- Font preloads -->
 <link rel="preload" href={inter400} as="font" type="font/woff2" crossorigin/>
 <link rel="preload" href={inter600} as="font" type="font/woff2" crossorigin/>
+<link rel="preload" href={grotesk700} as="font" type="font/woff2" crossorigin/>
 <link rel="preload" href={lora400} as="font" type="font/woff2" crossorigin/>
 <link rel="preload" href={lora600} as="font" type="font/woff2" crossorigin/>
 
@@ -97,10 +106,10 @@ const { title, description, image = "/og.svg", structuredData, type = "website",
 </script>
 
 <script is:inline>
-  function init() {
+  function init(instant) {
     preloadTheme();
     onScroll();
-    animate();
+    animate(instant);
 
     const backToTop = document.getElementById("back-to-top");
     backToTop?.addEventListener("click", (event) => scrollToTop(event));
@@ -137,13 +146,51 @@ const { title, description, image = "/og.svg", structuredData, type = "website",
     document.addEventListener("scroll", onScroll);
   }
 
-  function animate() {
-    const animateElements = document.querySelectorAll(".animate");
+  function animate(instant) {
+    const animateElements = Array.from(document.querySelectorAll(".animate"));
+    if (!animateElements.length) return;
 
-    animateElements.forEach((element, index) => {
-      setTimeout(() => {
-        element.classList.add("show");
-      }, index * 150);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // On view-transition navigations (instant), or reduced motion, or no
+    // observer support: reveal everything immediately. The entrance cascade
+    // is only meaningful on a true fresh page load.
+    if (instant || reduce || !("IntersectionObserver" in window)) {
+      animateElements.forEach((el) => el.classList.add("show"));
+      return;
+    }
+
+    // Reveal as soon as an element's top edge nears the viewport, with a
+    // short stagger scoped to the current batch so nothing waits on the page.
+    // A positive bottom rootMargin pre-triggers ~120px before it scrolls in,
+    // and threshold 0 means the first sliver counts (tall sections no longer
+    // wait for 10% of their height to appear).
+    let revealed = 0;
+    let lastTick = 0;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const now = performance.now();
+        if (now - lastTick > 400) revealed = 0; // reset stagger between batches
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const el = entry.target;
+          const delay = Math.min(revealed, 3) * 70; // cap cascade at ~210ms
+          revealed += 1;
+          lastTick = now;
+          setTimeout(() => el.classList.add("show"), delay);
+          observer.unobserve(el);
+        });
+      },
+      { rootMargin: "0px 0px 120px 0px", threshold: 0 }
+    );
+
+    // Anything already in view (or above) on load reveals immediately.
+    const vh = window.innerHeight;
+    animateElements.forEach((el) => {
+      if (el.getBoundingClientRect().top < vh) {
+        el.classList.add("show");
+      } else {
+        observer.observe(el);
+      }
     });
   }
 
@@ -201,7 +248,7 @@ function toggleTheme(dark) {
     }
   }
 
-  document.addEventListener("DOMContentLoaded", () => init());
-  document.addEventListener("astro:after-swap", () => init());
+  document.addEventListener("DOMContentLoaded", () => init(false));
+  document.addEventListener("astro:after-swap", () => init(true));
   preloadTheme();
 </script>

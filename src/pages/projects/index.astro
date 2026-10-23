@@ -13,10 +13,12 @@ const projects = (await getCollection("projects"))
 <PageLayout title={PROJECTS.TITLE} description={PROJECTS.DESCRIPTION}>
   <Container>
     <div class="space-y-10">
-      <div class="animate font-semibold text-black dark:text-white">
-        Projects
-      </div>
-      <ul class="animate flex flex-col gap-4">
+      <section class="animate nb-on-color rounded-nb border-4 border-nb-border bg-nb-orange p-6 shadow-nb-xl sm:p-8">
+        <span class="nb-tag">{projects.length} projects</span>
+        <h1 class="mt-2 text-5xl font-black uppercase tracking-tight sm:text-6xl">Projects</h1>
+        <p class="mt-3 max-w-2xl text-lg font-semibold leading-7">Platforms, clusters, and tooling I have designed and shipped.</p>
+      </section>
+      <ul class="animate nb-cycle flex flex-col gap-4">
         {
           projects.map((project) => (
             <li>

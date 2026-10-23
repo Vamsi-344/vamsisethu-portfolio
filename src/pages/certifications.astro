@@ -1,7 +1,6 @@
 ---
 import PageLayout from "@layouts/PageLayout.astro";
 import Container from "@components/Container.astro";
-import Link from "@components/Link.astro";
 import { CERTIFICATIONS, CERTS } from "@consts";
 
 const allCreds = [CERTS.KUBESTRONAUT, ...CERTS.ITEMS];
@@ -34,61 +33,48 @@ const certsSchema = {
   structuredData={certsSchema}
 >
   <Container>
-    <div class="space-y-10">
-      <div class="animate font-semibold text-black dark:text-white">
-        Certifications
-      </div>
-
-      <section class="animate space-y-4">
-        <p>
-          I'm a <Link href={CERTS.KUBESTRONAUT.HREF} external aria-label="Verify Kubestronaut on Credly">CNCF Kubestronaut</Link> —
+    <div class="space-y-12">
+      <section class="animate nb-on-color rounded-nb border-4 border-nb-border bg-nb-green p-6 shadow-nb-xl sm:p-8">
+        <span class="nb-tag">{CERTS.ITEMS.length} active CNCF certifications</span>
+        <h1 class="mt-3 text-5xl font-black uppercase tracking-tight sm:text-6xl">Certifications</h1>
+        <p class="mt-3 max-w-2xl text-lg font-semibold leading-7">
+          I'm a <a href={CERTS.KUBESTRONAUT.HREF} target="_blank" rel="noopener noreferrer" aria-label="Verify Kubestronaut on Credly" class="underline decoration-[3px] underline-offset-4 hover:bg-nb-yellow">CNCF Kubestronaut</a> —
           awarded for earning all five active CNCF Kubernetes certifications.
           Every credential below links to its public Credly verification.
         </p>
       </section>
 
-      <!-- Kubestronaut (headline credential) -->
       <section class="animate">
         <a
           href={CERTS.KUBESTRONAUT.HREF}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`Verify ${CERTS.KUBESTRONAUT.NAME} on Credly`}
-          class="block py-4 px-4 rounded-lg border border-black/15 dark:border-white/20 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-300 ease-in-out"
+          class="nb-accent-card-interactive nb-on-color group relative block bg-nb-yellow p-6 no-underline"
         >
-          <div class="font-semibold text-black dark:text-white">
-            {CERTS.KUBESTRONAUT.NAME}
-          </div>
-          <div class="text-sm opacity-75">
-            {CERTS.KUBESTRONAUT.ISSUER}
-          </div>
-          <div class="text-sm mt-1">
-            {CERTS.KUBESTRONAUT.DESCRIPTION}
-          </div>
+          <span class="absolute -right-3 -top-4 rotate-6 rounded-nb border-[3px] border-nb-border bg-nb-pink px-3 py-1 font-mono text-xs font-black uppercase shadow-nb-xs">★ Headline</span>
+          <div class="text-2xl font-black uppercase tracking-tight">{CERTS.KUBESTRONAUT.NAME}</div>
+          <div class="mt-1 font-mono text-xs font-black uppercase">{CERTS.KUBESTRONAUT.ISSUER}</div>
+          <div class="mt-3 font-semibold">{CERTS.KUBESTRONAUT.DESCRIPTION}</div>
+          <div class="mt-4 inline-block rounded border-2 border-nb-border bg-white px-2 py-0.5 text-xs font-black uppercase">Verify on Credly ↗</div>
         </a>
       </section>
 
-      <!-- Individual certifications -->
-      <section class="animate space-y-4">
-        <h5 class="font-semibold text-black dark:text-white">
-          Kubernetes certifications
-        </h5>
-        <ul class="flex flex-col gap-4">
-          {CERTS.ITEMS.map((cert) => (
+      <section class="animate space-y-5">
+        <h2 class="nb-h2 blue">Kubernetes certifications</h2>
+        <ul class="grid gap-5 sm:grid-cols-2">
+          {CERTS.ITEMS.map((cert, i) => (
             <li>
               <a
                 href={cert.HREF}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Verify ${cert.NAME} on Credly`}
-                class="block py-3 px-4 rounded-lg border border-black/15 dark:border-white/20 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-300 ease-in-out"
+                class={`nb-accent-card-interactive nb-on-color flex h-full flex-col p-5 no-underline ${["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "bg-nb-purple"][i % 5]}`}
               >
-                <div class="font-semibold text-black dark:text-white">
-                  {cert.NAME}
-                </div>
-                <div class="text-sm opacity-75">
-                  {cert.ISSUER}
-                </div>
+                <span class="font-mono text-xs font-black">{String(i + 1).padStart(2, "0")}</span>
+                <div class="mt-1 font-black leading-snug">{cert.NAME}</div>
+                <div class="mt-auto pt-3 text-xs font-bold uppercase">{cert.ISSUER} · verify ↗</div>
               </a>
             </li>
           ))}

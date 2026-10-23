@@ -6,9 +6,10 @@ interface Props {
 const { chart } = Astro.props;
 ---
 
-<div class="mermaid-container relative my-6 overflow-hidden rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-stone-800 p-4">
-  <div class="mermaid-controls flex gap-2 justify-end mb-2">
-    <button class="mermaid-zoom-in p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors" aria-label="Zoom in" title="Zoom in">
+<div class="mermaid-container not-prose relative my-8 overflow-hidden rounded-nb border-[3px] border-nb-border bg-white shadow-nb dark:border-nb-border-dark dark:bg-nb-card-dark">
+  <div class="mermaid-controls flex items-center gap-2 border-b-[3px] border-nb-border bg-nb-green px-3 py-1.5 dark:border-nb-border-dark">
+    <span class="mr-auto font-mono text-xs font-black uppercase tracking-wider text-nb-ink">Diagram · drag to pan</span>
+    <button class="mermaid-zoom-in grid size-7 place-items-center rounded border-2 border-nb-border bg-white text-nb-ink shadow-nb-xs transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-none" aria-label="Zoom in" title="Zoom in">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8"></circle>
         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -16,17 +17,17 @@ const { chart } = Astro.props;
         <line x1="8" y1="11" x2="14" y2="11"></line>
       </svg>
     </button>
-    <button class="mermaid-zoom-out p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors" aria-label="Zoom out" title="Zoom out">
+    <button class="mermaid-zoom-out grid size-7 place-items-center rounded border-2 border-nb-border bg-white text-nb-ink shadow-nb-xs transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-none" aria-label="Zoom out" title="Zoom out">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8"></circle>
         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         <line x1="8" y1="11" x2="14" y2="11"></line>
       </svg>
     </button>
-    <button class="mermaid-zoom-reset p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-xs font-mono" aria-label="Reset zoom" title="Reset zoom">
+    <button class="mermaid-zoom-reset grid size-7 place-items-center rounded border-2 border-nb-border bg-white text-nb-ink shadow-nb-xs transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-none text-xs font-mono" aria-label="Reset zoom" title="Reset zoom">
       1:1
     </button>
-    <button class="mermaid-fullscreen p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors" aria-label="Fullscreen" title="Fullscreen">
+    <button class="mermaid-fullscreen grid size-7 place-items-center rounded border-2 border-nb-border bg-white text-nb-ink shadow-nb-xs transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-none" aria-label="Fullscreen" title="Fullscreen">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="15 3 21 3 21 9"></polyline>
         <polyline points="9 21 3 21 3 15"></polyline>
@@ -35,7 +36,7 @@ const { chart } = Astro.props;
       </svg>
     </button>
   </div>
-  <div class="mermaid-viewport overflow-auto cursor-grab active:cursor-grabbing" style="max-height: 500px;">
+  <div class="mermaid-viewport overflow-auto cursor-grab p-4 active:cursor-grabbing" style="max-height: 500px;">
     <div class="mermaid-canvas transition-transform duration-200 origin-top-left">
       <pre class="mermaid" set:html={chart} />
     </div>
@@ -65,9 +66,52 @@ const { chart } = Astro.props;
       return document.documentElement.classList.contains("dark") ? "dark" : "default";
     }
 
+    // Neobrutalist palette: flat colour fills, thick ink outlines.
+    function themeVariables(theme) {
+      const dark = theme === "dark";
+      const line = dark ? "#fffdf5" : "#111111";
+      return {
+        fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+        fontSize: "15px",
+        primaryColor: "#ffe14d",
+        primaryTextColor: "#111111",
+        primaryBorderColor: "#111111",
+        secondaryColor: "#7cc8ff",
+        secondaryTextColor: "#111111",
+        secondaryBorderColor: "#111111",
+        tertiaryColor: "#8ef0a5",
+        tertiaryTextColor: "#111111",
+        tertiaryBorderColor: "#111111",
+        lineColor: line,
+        textColor: line,
+        mainBkg: "#ffe14d",
+        nodeBorder: "#111111",
+        clusterBkg: dark ? "#22201c" : "#fff7d1",
+        clusterBorder: line,
+        titleColor: line,
+        edgeLabelBackground: dark ? "#181613" : "#ffffff",
+        noteBkgColor: "#ff8fab",
+        noteTextColor: "#111111",
+        noteBorderColor: "#111111",
+        actorBkg: "#7cc8ff",
+        actorBorder: "#111111",
+        actorTextColor: "#111111",
+        actorLineColor: line,
+        signalColor: line,
+        signalTextColor: line,
+        labelBoxBkgColor: "#c9a7ff",
+        labelBoxBorderColor: "#111111",
+        labelTextColor: "#111111",
+        loopTextColor: line,
+        activationBkgColor: "#ffb057",
+        activationBorderColor: "#111111",
+        sequenceNumberColor: "#111111",
+      };
+    }
+
     async function renderAll(mermaid, { force = false } = {}) {
       const theme = getTheme();
-      mermaid.initialize({ startOnLoad: false, theme });
+      mermaid.initialize({ startOnLoad: false, theme: "base", themeVariables: themeVariables(theme), flowchart: { curve: "linear" } });
       const nodes = [];
       document.querySelectorAll("pre.mermaid").forEach((pre) => {
         // Stash the source once so re-renders (theme change) have the original.
