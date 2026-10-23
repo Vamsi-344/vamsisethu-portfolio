@@ -91,3 +91,47 @@ For public pages, use these as manual review tools:
 - Lighthouse or PageSpeed Insights for performance.
 
 Treat external checkers as advisory, not as build dependencies or the source of truth. Before publishing, verify generated HTML locally for canonical URLs, title and description length, OG image dimensions and alt text, JSON-LD, `sitemap-index.xml`, and `robots.txt`. Do not add an X/Twitter account attribution unless the account actually exists.
+
+## Design system (neobrutalist theme)
+
+The site uses a neobrutalist theme: flat cream/charcoal surfaces with a dot grid, thick black borders, hard offset shadows (no blur), square-ish corners (6px), and bold saturated accents. When editing or adding UI, reuse the existing primitives instead of hand-rolling styles.
+
+### Where things live
+
+- `src/styles/global.css` — the theme core: design tokens (`--nb-shadow`, `--nb-dot`), all `.nb-*` component classes, long-form `article` styling, the entrance-animation and view-transition rules.
+- `tailwind.config.mjs` — the `nb-*` colour palette, `shadow-nb*` tokens, `rounded-nb` (6px), and font families.
+- `src/components/Head.astro` — font imports/preloads and the scroll-reveal (`animate()`) + theme (`preloadTheme`/`toggleTheme`) scripts.
+
+### Primitives (prefer these over ad-hoc classes)
+
+- Surfaces: `.nb-card`, `.nb-card-interactive`, `.nb-panel`.
+- **Accent surfaces** (a fixed bright colour that must stay bright in BOTH themes): `.nb-accent-card`, `.nb-accent-card-interactive`.
+- Buttons: `.nb-btn` and colour variants (`.nb-btn-pink`, `.nb-btn-blue`, `.nb-btn-green`, `.nb-btn-white`).
+- Small bits: `.nb-tag`, `.nb-chip`, `.nb-h2` (section label, with `.blue/.green/.yellow/.purple/.orange` shadow variants), `.nb-mark`, `.nb-input`, `.nb-muted`.
+- Interaction: `.nb-lift` (hover raise), `.nb-press` (press-in), `.nb-tilt-l/-r` (tilt that straightens on hover). List colour cycling via `.nb-cycle` + `.nb-accent`.
+
+### Dark-mode rules — do not break these
+
+- Every surface MUST set a background together with a readable text colour for both themes. A half-set pair renders invisible in dark mode.
+- `.nb-card` flips its background to dark (`dark:bg-nb-card-dark`) in dark mode. `.nb-on-color` forces dark ink (`#111`) on its contents. **Never combine `nb-card`/`nb-card-interactive` with `nb-on-color` on a bright-accent surface** — the dark background wins and the forced dark ink becomes invisible (dark-on-dark). Use `.nb-accent-card` / `.nb-accent-card-interactive` instead: they keep the accent background in both themes.
+- `.nb-on-color` is only for surfaces that stay a bright accent colour in both themes (hero, page heroes, connect block, accent cards). The dark shadow token is cream (`#f5f3ea`) so the hard offset still reads on the dark background.
+- When adding a new accent card, verify it in BOTH light and dark before committing.
+
+### Layout and width
+
+- `src/components/Container.astro` is the shared page frame at `max-w-[70rem]` (1120px), matching the plan-doc reference. List/card pages use it full-width.
+- Long-form reading columns (blog post, project detail) cap at `48rem` (~768px) for a comfortable measure. Keep any new article/reading page at the same width so content width is consistent across the site.
+
+### Motion
+
+- Entrance reveals use the `.animate` class plus the `IntersectionObserver` in `Head.astro`. It reveals in-view content immediately, pre-triggers ~120px before entering the viewport, and reveals INSTANTLY on view-transition navigations (`init(true)`), so internal nav does not re-fade.
+- Astro's view-transition morph is disabled in CSS (`::view-transition-*`) to keep SPA navigation instant.
+- All motion must respect `prefers-reduced-motion` (the global rule already disables transitions/animations under it). Animate only when motion carries meaning.
+
+### Fonts
+
+- Display + body are both **Space Grotesk** (the default `sans`); Inter is the fallback. Weights 400/500/600/700 are imported and 700 is preloaded in `Head.astro`. Lora (serif) is retained but unused by default.
+
+### After any UI change
+
+Run `pnpm build` (0 errors/warnings expected) and inspect the page in BOTH light and dark mode before committing. For local visual checks prefer `pnpm preview` (production build) over `pnpm dev` — the dev server compiles routes on demand and makes navigation feel artificially slow.
