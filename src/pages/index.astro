@@ -146,66 +146,39 @@ const personSchema = {
 };
 
 const stats = [
-  { label: "Posts", value: allBlog.length, note: "long-form write-ups", color: "bg-nb-yellow", href: "/blog" },
-  { label: "Projects", value: allProjects.length, note: "platforms shipped", color: "bg-nb-green", href: "/projects" },
-  { label: "CNCF certs", value: `${CERTS.ITEMS.length}/5`, note: "Kubestronaut", color: "bg-nb-blue", href: "/certifications" },
-  { label: "Contributions", value: githubActivity.totalContributions?.toLocaleString("en-US") ?? "—", note: "on GitHub, last year", color: "bg-nb-pink", href: `https://github.com/${githubUsername}` },
+  { label: "Posts", value: allBlog.length, note: "long-form write-ups", href: "/blog" },
+  { label: "Projects", value: allProjects.length, note: "platforms shipped", href: "/projects" },
+  { label: "CNCF certifications", value: `${CERTS.ITEMS.length}/5`, note: "Kubestronaut", href: "/certifications" },
+  { label: "Contributions", value: githubActivity.totalContributions?.toLocaleString("en-US") ?? "—", note: "on GitHub, last year", href: `https://github.com/${githubUsername}` },
 ];
 
 const focusAreas = [
-  { title: "Platform foundations", body: "Multi-cluster Kubernetes platforms across AWS, bare metal, and non-AWS environments.", color: "bg-nb-green", tilt: "nb-tilt-l", tag: "01" },
-  { title: "Autonomous GitOps", body: "Hub/spoke delivery with automated bootstrap and independently recoverable clusters.", color: "bg-nb-blue", tilt: "nb-tilt-r", tag: "02" },
-  { title: "Identity & secure delivery", body: "Workload identity, Private CA trust, and encrypted secret delivery from KMS to ESO.", color: "bg-nb-orange", tilt: "nb-tilt-l", tag: "03" },
+  { title: "Platform foundations", body: "Multi-cluster Kubernetes platforms across AWS, bare metal, and non-AWS environments." },
+  { title: "Autonomous GitOps", body: "Hub/spoke delivery with automated bootstrap and independently recoverable clusters." },
+  { title: "Identity & secure delivery", body: "Workload identity, Private CA trust, and encrypted secret delivery from KMS to ESO." },
 ];
-
-const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "bg-nb-purple", "bg-nb-yellow"];
 ---
 
 <PageLayout title={HOME.TITLE} description={HOME.DESCRIPTION} structuredData={personSchema}>
   <Container>
-    <div class="space-y-14 md:space-y-16">
-      <!-- Hero -->
-      <section class="animate relative overflow-hidden rounded-nb border-4 border-nb-border bg-nb-yellow p-7 text-nb-ink shadow-nb-xl sm:p-10 md:p-12">
-        <!-- decorative floating shapes (behind content, clipped by overflow-hidden) -->
-        <span aria-hidden="true" class="nb-float pointer-events-none absolute -bottom-10 -left-10 size-28 rounded-full border-4 border-nb-border bg-nb-pink opacity-50"></span>
-        <span aria-hidden="true" class="nb-float-slow pointer-events-none absolute -right-8 bottom-10 size-16 rotate-12 rounded-nb border-4 border-nb-border bg-nb-blue opacity-50"></span>
-        <div class="relative">
-          <div class="flex flex-wrap gap-2">
-            <span class="nb-tag">Software Engineer</span>
-            <span class="nb-tag bg-nb-pink">SRE</span>
-            <span class="nb-tag bg-nb-blue">CNCF Kubestronaut</span>
-          </div>
-          <p class="mt-7 flex items-center gap-2 font-mono text-sm font-bold uppercase tracking-widest">
-            <span class="relative flex size-2.5">
-              <span class="absolute inline-flex size-full animate-ping rounded-full bg-nb-green opacity-75"></span>
-              <span class="relative inline-flex size-2.5 rounded-full border-2 border-nb-border bg-nb-green"></span>
-            </span>
-            Hi, I'm Vamsi 👋
-          </p>
-          <h1 class="mt-3 text-balance text-4xl font-black leading-[1.03] tracking-tight sm:text-5xl md:text-[3.7rem]">
-            I build cloud-native platforms for <span class="hero-accent inline-block -rotate-1 rounded-nb border-[3px] border-nb-border bg-nb-pink px-2 shadow-nb-xs">AI workloads</span> across Kubernetes, GitOps &amp; secure delivery.
-          </h1>
-          <p class="mt-6 max-w-2xl text-lg font-semibold leading-8">
-            I work across AWS, bare metal, and autonomous spoke clusters — designing cluster lifecycle, workload identity, encrypted secrets, and recovery paths for production systems.
-          </p>
-          <div class="mt-8 flex flex-wrap gap-4">
-            <a href="/projects" class="nb-btn bg-nb-ink !text-nb-yellow">Explore projects →</a>
-            <a href="/blog" class="nb-btn-pink">Read writing</a>
-            <a href="/Vamsi_Krishna_Sethu_Resume.pdf" class="nb-btn-white">View resume</a>
-          </div>
+    <div class="home-page space-y-14 md:space-y-16">
+      <section class="home-hero animate">
+        <p class="eyebrow">Vamsi Krishna Sethu</p>
+        <h1>Infrastructure engineer.</h1>
+        <p class="home-hero-copy">I design reliable platforms, delivery systems, and identity foundations for teams running cloud-native workloads.</p>
+        <div class="mt-6 flex flex-wrap gap-4">
+          <a href="/projects" class="text-link">View selected work →</a>
+          <a href="/blog" class="text-link">Writing →</a>
         </div>
-        <a href="#h-connect" class="absolute right-4 top-4 z-10 hidden no-underline nb-press rotate-3 rounded-nb border-[3px] border-nb-border bg-white px-3 py-1 font-mono text-xs font-black uppercase shadow-nb-sm sm:block">
-          ★ say hi
-        </a>
       </section>
 
       <!-- Stats -->
       <section class="animate grid grid-cols-2 gap-4 md:grid-cols-4" aria-label="At a glance">
         {stats.map(stat => (
-          <a href={stat.href} class={`nb-accent-card-interactive nb-on-color ${stat.color} p-4 text-center no-underline`}>
-            <span class="block text-xs font-black uppercase tracking-wider">{stat.label}</span>
-            <span class="my-1 block text-4xl font-black leading-none">{stat.value}</span>
-            <span class="block text-xs font-semibold">{stat.note}</span>
+          <a href={stat.href} class="home-stat no-underline">
+            <span class="home-stat-label">{stat.label}</span>
+            <span class="home-stat-value">{stat.value}</span>
+            <span class="home-stat-note">{stat.note}</span>
           </a>
         ))}
       </section>
@@ -218,9 +191,8 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
         </div>
         <div class="grid gap-5 md:grid-cols-3">
           {focusAreas.map(area => (
-            <div class={`nb-accent-card nb-on-color ${area.color} ${area.tilt} p-5`}>
-              <span class="font-mono text-xs font-black">{area.tag}</span>
-              <h3 class="mt-1 text-lg font-black uppercase leading-tight tracking-tight">{area.title}</h3>
+            <div class="credential-card p-5">
+              <h3 class="text-lg font-semibold tracking-tight">{area.title}</h3>
               <p class="mt-2 text-sm font-medium leading-6">{area.body}</p>
             </div>
           ))}
@@ -230,28 +202,18 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
       <!-- Work -->
       <section class="animate space-y-6" aria-labelledby="h-work">
         <div class="flex flex-wrap items-end justify-between gap-3">
-          <h2 id="h-work" class="nb-h2 blue">Work experience</h2>
-          <a href="/work" class="nb-chip nb-press text-xs uppercase hover:bg-nb-blue">See all work →</a>
+          <h2 id="h-work" class="section-title">Work experience</h2>
+          <a href="/work" class="text-link text-sm">See all work →</a>
         </div>
-        <ol class="relative space-y-6 border-l-4 border-dashed border-nb-border pl-7 dark:border-nb-border-dark">
+        <ol class="work-list">
           {work.map(entry => {
             const isCurrent = entry.data.dateEnd === "Current";
             return (
-            <li class={`nb-card relative p-5 ${isCurrent ? "border-l-[12px] !border-l-nb-green" : ""}`}>
-              <span class={`absolute -left-[2.6rem] top-6 size-5 rounded-full border-[3px] border-nb-border ${isCurrent ? "bg-nb-green" : "bg-nb-blue"}`} aria-hidden="true"></span>
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="rounded border-2 border-nb-border bg-nb-yellow px-2 font-mono text-xs font-black uppercase text-nb-ink">
-                  {dateRange(entry.data.dateStart, entry.data.dateEnd)}
-                </span>
-                {isCurrent && <span class="nb-tag bg-nb-green !py-0">Now</span>}
-              </div>
-              <div class="mt-2 text-lg font-black text-nb-ink dark:text-nb-ink-dark">
-                {entry.data.company}
-              </div>
-              <div class="text-sm font-bold nb-muted">
-                {entry.data.role}
-              </div>
-              <article class="mt-3">
+            <li class="work-item">
+              <div class="work-item-meta">{dateRange(entry.data.dateStart, entry.data.dateEnd)}{isCurrent && <span>Current</span>}</div>
+              <div class="work-item-company">{entry.data.company}</div>
+              <div class="work-item-role">{entry.data.role}</div>
+              <article class="work-item-description">
                 <entry.Content />
               </article>
             </li>
@@ -264,16 +226,16 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
       <section class="animate space-y-6" aria-labelledby="h-activity">
         <div class="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="h-activity" class="nb-h2 green">Engineering activity</h2>
-            <p class="mt-4 text-sm font-medium nb-muted">A public signal of ongoing work, experiments, and maintenance.</p>
+            <h2 id="h-activity" class="section-title">Engineering activity</h2>
+            <p class="mt-3 text-sm nb-muted">A public signal of ongoing work, experiments, and maintenance.</p>
           </div>
-          <a href={`https://github.com/${githubUsername}`} target="_blank" rel="noopener noreferrer" class="nb-chip nb-press text-xs uppercase hover:bg-nb-green">View GitHub ↗</a>
+          <a href={`https://github.com/${githubUsername}`} target="_blank" rel="noopener noreferrer" class="text-link text-sm">View GitHub ↗</a>
         </div>
-        <div class="nb-card p-5">
+        <div class="activity-panel">
           {githubWeeks.length > 0 ? (
             <>
-              <div class="-mx-5 overflow-x-auto px-5 pb-1 sm:mx-0 sm:px-0">
-                <div class="grid w-max grid-flow-col grid-rows-7 gap-1" aria-label="GitHub contribution calendar">
+              <div class="activity-calendar overflow-x-auto pb-2">
+                <div class="grid min-w-max grid-flow-col grid-rows-7 gap-1" aria-label="GitHub contribution calendar">
                   {githubWeeks.map((week) => (
                     week.contributionDays.map((day) => {
                       const level = getContributionLevel(day.contributionCount);
@@ -284,12 +246,12 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
                           rel="noopener noreferrer"
                           title={`${day.contributionCount} contribution${day.contributionCount === 1 ? "" : "s"} on ${day.date}`}
                           class:list={[
-                            "size-2.5 rounded-[2px] border-2 border-nb-border no-underline transition-transform duration-150 hover:z-10 hover:scale-125 dark:border-nb-border-dark/60 sm:size-3",
-                            level === 0 && "bg-white dark:bg-nb-bg-dark",
-                            level === 1 && "bg-nb-green",
-                            level === 2 && "bg-nb-blue",
-                            level === 3 && "bg-nb-yellow",
-                            level === 4 && "bg-nb-pink",
+                            "activity-day no-underline",
+                            level === 0 && "bg-black/[.04] dark:bg-white/[.06]",
+                            level === 1 && "bg-black/[.12] dark:bg-white/[.16]",
+                            level === 2 && "bg-black/[.22] dark:bg-white/[.28]",
+                            level === 3 && "bg-black/[.36] dark:bg-white/[.42]",
+                            level === 4 && "bg-[#0071e3]",
                           ]}
                         >
                           <span class="sr-only">{day.contributionCount} contributions on {day.date}</span>
@@ -306,12 +268,12 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
                   {[0, 1, 2, 3, 4].map((level) => (
                     <span
                       class:list={[
-                        "size-2.5 rounded-[2px] border-2 border-nb-border dark:border-nb-border-dark/60 sm:size-3",
-                        level === 0 && "bg-white dark:bg-nb-bg-dark",
-                        level === 1 && "bg-nb-green",
-                        level === 2 && "bg-nb-blue",
-                        level === 3 && "bg-nb-yellow",
-                        level === 4 && "bg-nb-pink",
+                        "activity-day",
+                        level === 0 && "bg-black/[.04] dark:bg-white/[.06]",
+                        level === 1 && "bg-black/[.12] dark:bg-white/[.16]",
+                        level === 2 && "bg-black/[.22] dark:bg-white/[.28]",
+                        level === 3 && "bg-black/[.36] dark:bg-white/[.42]",
+                        level === 4 && "bg-[#0071e3]",
                       ]}
                     />
                   ))}
@@ -330,8 +292,8 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
       <!-- Posts -->
       <section class="animate space-y-6" aria-labelledby="h-posts">
         <div class="flex flex-wrap items-end justify-between gap-3">
-          <h2 id="h-posts" class="nb-h2">Latest posts</h2>
-          <a href="/blog" class="nb-chip nb-press text-xs uppercase hover:bg-nb-pink">See all posts →</a>
+          <h2 id="h-posts" class="section-title">Latest posts</h2>
+          <a href="/blog" class="text-link text-sm">See all posts →</a>
         </div>
         <ul class="nb-cycle flex flex-col gap-4">
           {blog.map(post => (
@@ -343,8 +305,8 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
       <!-- Projects -->
       <section class="animate space-y-6" aria-labelledby="h-projects">
         <div class="flex flex-wrap items-end justify-between gap-3">
-          <h2 id="h-projects" class="nb-h2 orange">Recent projects</h2>
-          <a href="/projects" class="nb-chip nb-press text-xs uppercase hover:bg-nb-orange">See all projects →</a>
+          <h2 id="h-projects" class="section-title">Recent projects</h2>
+          <a href="/projects" class="text-link text-sm">See all projects →</a>
         </div>
         <ul class="nb-cycle flex flex-col gap-4">
           {projects.map(project => (
@@ -357,19 +319,17 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
       <section class="animate space-y-6" aria-labelledby="h-spaces">
         <div class="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="h-spaces" class="nb-h2 purple">Spaces</h2>
-            <p class="mt-4 text-sm font-medium nb-muted">Browse the work by the technical areas it belongs to.</p>
+            <h2 id="h-spaces" class="section-title">Spaces</h2>
+            <p class="mt-3 text-sm nb-muted">Browse the work by the technical areas it belongs to.</p>
           </div>
-          <a href="/spaces" class="nb-chip nb-press text-xs uppercase hover:bg-nb-purple">See all spaces →</a>
+          <a href="/spaces" class="text-link text-sm">See all spaces →</a>
         </div>
         <ul class="nb-cycle grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {spaces.map(space => (
             <li>
-              <a href={`/spaces/${space.slug}`} class="nb-card-interactive group flex items-center gap-3 px-4 py-3 no-underline">
-                <span class="nb-accent nb-accent-bg flex size-10 items-center justify-center rounded-nb border-[3px] border-nb-border p-1.5 transition-transform group-hover:-rotate-6" aria-hidden="true">
-                  <img src={space.logo} alt="" class="size-full object-contain" loading="lazy" decoding="async" />
-                </span>
-                <span class="font-black uppercase tracking-tight text-nb-ink dark:text-nb-ink-dark">{space.name}</span>
+              <a href={`/spaces/${space.slug}`} class="space-link group flex items-center gap-3 no-underline">
+                <span class="space-link-icon" aria-hidden="true"><img src={space.logo} alt="" class="size-5 object-contain" loading="lazy" decoding="async" /></span>
+                <span>{space.name}</span><span class="ml-auto text-[#0066cc]" aria-hidden="true">→</span>
               </a>
             </li>
           ))}
@@ -379,16 +339,16 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
       <!-- Skills -->
       <section class="animate space-y-6 overflow-hidden" aria-labelledby="h-skills">
         <div>
-          <h2 id="h-skills" class="nb-h2 yellow">Skills &amp; technologies</h2>
+          <h2 id="h-skills" class="section-title">Skills &amp; technologies</h2>
           <p class="mt-4 text-sm font-medium nb-muted">Tools I use to build, operate, and debug infrastructure.</p>
         </div>
         <div class="-mx-5 space-y-3 px-5 sm:mx-0 sm:px-0">
           {techRows.map((row, index) => (
             <div class="tech-marquee overflow-hidden py-1.5" data-direction={index % 2 === 0 ? "normal" : "reverse"}>
               <div class="tech-marquee-track flex w-max gap-3 pr-3">
-                {[...row, ...row, ...row].map((technology, i) => (
-                  <div class="flex items-center gap-2.5 rounded-nb border-[3px] border-nb-border bg-white px-3 py-1.5 text-sm shadow-nb-xs dark:border-nb-border-dark dark:bg-nb-card-dark">
-                    <span class={`flex size-7 items-center justify-center rounded border-2 border-nb-border p-1 ${chipColors[(i + index) % chipColors.length]}`}>
+                {[...row, ...row, ...row].map((technology) => (
+                  <div class="tech-item flex items-center gap-2.5 px-3 py-1.5 text-sm">
+                    <span class="flex size-7 items-center justify-center rounded-full bg-black/[.06] p-1 dark:bg-white/[.10]">
                       <img src={technology.logo} alt="" class="size-full object-contain" loading="lazy" decoding="async" />
                     </span>
                     <span class="font-extrabold text-nb-ink dark:text-nb-ink-dark">{technology.name}</span>
@@ -401,29 +361,30 @@ const chipColors = ["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "
       </section>
 
       <!-- Connect -->
-      <section class="animate nb-on-color rounded-nb border-4 border-nb-border bg-nb-pink p-6 shadow-nb-xl sm:p-8" aria-labelledby="h-connect">
-        <h2 id="h-connect" class="text-3xl font-black uppercase tracking-tight">Let's connect</h2>
+      <section class="contact-panel animate" aria-labelledby="h-connect">
+        <p class="eyebrow">Get in touch</p>
+        <h2 id="h-connect">Let’s build something dependable.</h2>
         <p class="mt-2 max-w-xl font-semibold">
           Reach out if you want to compare notes on Kubernetes platforms, SRE,
           infrastructure automation, or cloud-native operations.
         </p>
         <ul class="mt-5 flex flex-wrap gap-3">
-          {SOCIALS.map((SOCIAL, i) => (
+          {SOCIALS.map((SOCIAL) => (
             <li>
               <a
                 href={SOCIAL.HREF}
                 target={SOCIAL.HREF.startsWith("http") ? "_blank" : undefined}
                 rel={SOCIAL.HREF.startsWith("http") ? "noopener noreferrer" : undefined}
                 aria-label={`${SITE.NAME} on ${SOCIAL.NAME}`}
-                class={`nb-chip nb-press text-sm uppercase ${["bg-white", "bg-nb-yellow", "bg-nb-blue", "bg-nb-green", "bg-nb-purple"][i % 5]}`}
+                class="text-link text-sm"
               >
                 {SOCIAL.NAME}
               </a>
             </li>
           ))}
           <li>
-            <a href={`mailto:${SITE.EMAIL}`} aria-label={`Email ${SITE.NAME}`} class="nb-chip nb-press bg-nb-ink text-sm !text-nb-yellow">
-              ✉ {SITE.EMAIL}
+            <a href={`mailto:${SITE.EMAIL}`} aria-label={`Email ${SITE.NAME}`} class="text-link text-sm">
+              {SITE.EMAIL}
             </a>
           </li>
         </ul>

@@ -4,29 +4,11 @@ import PageLayout from "@layouts/PageLayout.astro";
 import Container from "@components/Container.astro";
 import ArrowCard from "@components/ArrowCard.astro";
 import { PROJECTS } from "@consts";
-
-const projects = (await getCollection("projects"))
-  .filter(project => !project.data.draft)
-  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const projects = (await getCollection("projects")).filter(project => !project.data.draft).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 ---
-
 <PageLayout title={PROJECTS.TITLE} description={PROJECTS.DESCRIPTION}>
-  <Container>
-    <div class="space-y-10">
-      <section class="animate nb-on-color rounded-nb border-4 border-nb-border bg-nb-orange p-6 shadow-nb-xl sm:p-8">
-        <span class="nb-tag">{projects.length} projects</span>
-        <h1 class="mt-2 text-5xl font-black uppercase tracking-tight sm:text-6xl">Projects</h1>
-        <p class="mt-3 max-w-2xl text-lg font-semibold leading-7">Platforms, clusters, and tooling I have designed and shipped.</p>
-      </section>
-      <ul class="animate nb-cycle flex flex-col gap-4">
-        {
-          projects.map((project) => (
-            <li>
-              <ArrowCard entry={project}/>
-            </li>
-          ))
-        }
-      </ul>
-    </div>
-  </Container>
+  <Container><div class="space-y-12">
+    <section class="page-intro animate"><p class="eyebrow">Selected work</p><h1 class="mt-3">Projects</h1><p class="mt-5">Platforms, clusters, and tooling I have designed and shipped.</p></section>
+    <ul class="animate flex flex-col gap-4">{projects.map(project => <li><ArrowCard entry={project} /></li>)}</ul>
+  </div></Container>
 </PageLayout>

@@ -12,24 +12,24 @@ const tags = ("tags" in entry.data ? entry.data.tags ?? [] : []).slice(0, 3);
 
 <a
   href={`/${entry.collection}/${entry.slug}`}
-  class="nb-card-interactive nb-accent nb-accent-border group relative flex flex-nowrap items-center gap-4 border-l-[12px] py-3.5 pl-4 pr-14 no-underline"
+  class="apple-preview group relative flex flex-nowrap items-center gap-4 py-5 pl-5 pr-14 no-underline"
 >
   <div class="flex min-w-0 flex-1 flex-col gap-1">
-    <div class="flex flex-wrap items-center gap-2 font-mono text-[0.7rem] font-bold uppercase tracking-wider nb-muted">
+    <div class="card-meta flex flex-wrap items-center gap-2">
       <time datetime={entry.data.date.toISOString()}>{date}</time>
       {tags.map(tag => (
-        <span class="rounded border-2 border-nb-border bg-nb-zebra px-1.5 text-nb-ink dark:border-nb-border-dark dark:bg-transparent dark:text-nb-ink-dark">{tag}</span>
+        <span class="apple-preview-tag">{tag}</span>
       ))}
     </div>
-    <div class="font-black leading-snug text-nb-ink dark:text-nb-ink-dark sm:truncate">
+    <div class="card-title leading-snug sm:truncate">
       {entry.data.title}
     </div>
-    <div class="truncate text-sm font-medium leading-6 nb-muted">
+    <div class="card-description truncate text-sm leading-6">
       {entry.data.description}
     </div>
   </div>
   <span
-    class="nb-accent-bg absolute right-3 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-nb border-[3px] border-nb-border text-nb-ink transition-transform duration-150 group-hover:translate-x-1 group-hover:-rotate-6 dark:border-nb-border-dark"
+    class="apple-preview-arrow absolute right-5 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center"
     aria-hidden="true"
   >
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="size-5 fill-none stroke-current stroke-[3]">

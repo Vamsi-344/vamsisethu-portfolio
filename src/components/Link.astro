@@ -8,14 +8,13 @@ type Props = {
   class?: string;
 }
 
-const { href, external, underline = true, ...rest } = Astro.props;
+const { href, external, underline = true, class: className, ...rest } = Astro.props;
 ---
 
-<a 
-  href={href} 
-  target={ external ? "_blank" : undefined }
-  rel={ external ? "noopener noreferrer" : undefined }
-  class={cn("inline-block font-bold text-current decoration-nb-pink decoration-[3px] hover:bg-nb-yellow hover:text-nb-ink transition-colors duration-100", underline && "underline underline-offset-[3px]")}
-  {...rest}>
-  <slot/>
-</a>
+<a
+  href={href}
+  target={external ? "_blank" : undefined}
+  rel={external ? "noopener noreferrer" : undefined}
+  class={cn("text-link", underline && "hover:underline underline-offset-4", className)}
+  {...rest}
+><slot /></a>

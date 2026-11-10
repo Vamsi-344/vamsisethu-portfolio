@@ -3,45 +3,32 @@ import Container from "@components/Container.astro";
 import { SITE } from "@consts";
 
 const NAV = [
-  { href: "/blog", label: "Blog", color: "bg-nb-pink" },
-  { href: "/spaces", label: "Spaces", color: "bg-nb-blue" },
-  { href: "/work", label: "Work", color: "bg-nb-green" },
-  { href: "/projects", label: "Projects", color: "bg-nb-orange" },
-  { href: "/certifications", label: "Certs", color: "bg-nb-purple" },
-  { href: "/Vamsi_Krishna_Sethu_Resume.pdf", label: "Resume", color: "bg-white" },
+  { href: "/work", label: "Work" },
+  { href: "/projects", label: "Projects" },
+  { href: "/blog", label: "Writing" },
+  { href: "/certifications", label: "About" },
 ];
 
 const path = Astro.url.pathname;
 ---
 
-<header>
+<header class="site-header">
   <Container>
-    <div class="flex items-center justify-between gap-3">
-      <a href="/" aria-label={`${SITE.NAME} home`} class="group flex w-fit shrink-0 items-center gap-2 no-underline">
-        <span class="flex size-9 items-center justify-center rounded-nb border-[3px] border-nb-border bg-nb-ink font-black text-nb-yellow shadow-nb-xs transition-transform duration-150 group-hover:-rotate-6" aria-hidden="true">
-          VS
-        </span>
-        <span class="hidden text-base font-black uppercase leading-none tracking-tight text-nb-ink sm:inline lg:text-lg">
-          {SITE.NAME}
-        </span>
+    <div class="site-nav">
+      <a href="/" aria-label={`${SITE.NAME} home`} class="site-wordmark">
+        {SITE.NAME}
       </a>
-      <nav class="-mr-1 flex items-center gap-1.5 overflow-x-auto pr-1 md:gap-2" aria-label="Primary navigation">
+      <nav class="site-nav-links" aria-label="Primary navigation">
         {NAV.map(item => {
-          const active = item.href.startsWith("/") && !item.href.endsWith(".pdf") && (item.href === "/" ? path === "/" : path.startsWith(item.href));
+          const active = path.startsWith(item.href);
           return (
-            <a
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              class:list={[
-                "nb-press shrink-0 rounded-nb border-[3px] border-nb-border px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-nb-ink no-underline shadow-nb-xs",
-                active ? "bg-nb-ink !text-nb-yellow" : `${item.color} hover:bg-white`,
-              ]}
-            >
+            <a href={item.href} aria-current={active ? "page" : undefined}>
               {item.label}
             </a>
           );
         })}
       </nav>
+      <a href="/Vamsi_Krishna_Sethu_Resume.pdf" class="site-nav-cta">Résumé</a>
     </div>
   </Container>
 </header>

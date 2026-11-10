@@ -4,82 +4,32 @@ import Container from "@components/Container.astro";
 import { CERTIFICATIONS, CERTS } from "@consts";
 
 const allCreds = [CERTS.KUBESTRONAUT, ...CERTS.ITEMS];
-
 const certsSchema = {
-  "@context": "https://schema.org",
-  "@type": "ItemList",
-  name: "Certifications",
-  itemListElement: allCreds.map((c, i) => ({
-    "@type": "ListItem",
-    position: i + 1,
-    item: {
-      "@type": "EducationalOccupationalCredential",
-      name: c.NAME,
-      credentialCategory: "certification",
-      url: c.HREF,
-      recognizedBy: {
-        "@type": "Organization",
-        name: "Cloud Native Computing Foundation",
-        url: "https://www.cncf.io/",
-      },
-    },
-  })),
+  "@context": "https://schema.org", "@type": "ItemList", name: "Certifications",
+  itemListElement: allCreds.map((c, i) => ({ "@type": "ListItem", position: i + 1, item: { "@type": "EducationalOccupationalCredential", name: c.NAME, credentialCategory: "certification", url: c.HREF, recognizedBy: { "@type": "Organization", name: "Cloud Native Computing Foundation", url: "https://www.cncf.io/" } } })),
 };
 ---
-
-<PageLayout
-  title={CERTIFICATIONS.TITLE}
-  description={CERTIFICATIONS.DESCRIPTION}
-  structuredData={certsSchema}
->
-  <Container>
-    <div class="space-y-12">
-      <section class="animate nb-on-color rounded-nb border-4 border-nb-border bg-nb-green p-6 shadow-nb-xl sm:p-8">
-        <span class="nb-tag">{CERTS.ITEMS.length} active CNCF certifications</span>
-        <h1 class="mt-3 text-5xl font-black uppercase tracking-tight sm:text-6xl">Certifications</h1>
-        <p class="mt-3 max-w-2xl text-lg font-semibold leading-7">
-          I'm a <a href={CERTS.KUBESTRONAUT.HREF} target="_blank" rel="noopener noreferrer" aria-label="Verify Kubestronaut on Credly" class="underline decoration-[3px] underline-offset-4 hover:bg-nb-yellow">CNCF Kubestronaut</a> —
-          awarded for earning all five active CNCF Kubernetes certifications.
-          Every credential below links to its public Credly verification.
-        </p>
-      </section>
-
-      <section class="animate">
-        <a
-          href={CERTS.KUBESTRONAUT.HREF}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Verify ${CERTS.KUBESTRONAUT.NAME} on Credly`}
-          class="nb-accent-card-interactive nb-on-color group relative block bg-nb-yellow p-6 no-underline"
-        >
-          <span class="absolute -right-3 -top-4 rotate-6 rounded-nb border-[3px] border-nb-border bg-nb-pink px-3 py-1 font-mono text-xs font-black uppercase shadow-nb-xs">★ Headline</span>
-          <div class="text-2xl font-black uppercase tracking-tight">{CERTS.KUBESTRONAUT.NAME}</div>
-          <div class="mt-1 font-mono text-xs font-black uppercase">{CERTS.KUBESTRONAUT.ISSUER}</div>
-          <div class="mt-3 font-semibold">{CERTS.KUBESTRONAUT.DESCRIPTION}</div>
-          <div class="mt-4 inline-block rounded border-2 border-nb-border bg-white px-2 py-0.5 text-xs font-black uppercase">Verify on Credly ↗</div>
-        </a>
-      </section>
-
-      <section class="animate space-y-5">
-        <h2 class="nb-h2 blue">Kubernetes certifications</h2>
-        <ul class="grid gap-5 sm:grid-cols-2">
-          {CERTS.ITEMS.map((cert, i) => (
-            <li>
-              <a
-                href={cert.HREF}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Verify ${cert.NAME} on Credly`}
-                class={`nb-accent-card-interactive nb-on-color flex h-full flex-col p-5 no-underline ${["bg-nb-pink", "bg-nb-blue", "bg-nb-green", "bg-nb-orange", "bg-nb-purple"][i % 5]}`}
-              >
-                <span class="font-mono text-xs font-black">{String(i + 1).padStart(2, "0")}</span>
-                <div class="mt-1 font-black leading-snug">{cert.NAME}</div>
-                <div class="mt-auto pt-3 text-xs font-bold uppercase">{cert.ISSUER} · verify ↗</div>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
-  </Container>
+<PageLayout title={CERTIFICATIONS.TITLE} description={CERTIFICATIONS.DESCRIPTION} structuredData={certsSchema}>
+  <Container><div class="space-y-14">
+    <section class="page-intro animate">
+      <p class="eyebrow">Professional development</p>
+      <h1 class="mt-3">Certifications</h1>
+      <p class="mt-5 max-w-2xl">I am a CNCF Kubestronaut, awarded after earning all five active CNCF Kubernetes certifications. Each credential links to its public verification.</p>
+    </section>
+    <section class="animate">
+      <a href={CERTS.KUBESTRONAUT.HREF} target="_blank" rel="noopener noreferrer" class="credential-card block no-underline">
+        <p class="eyebrow">Featured credential</p>
+        <h2 class="mt-3 text-2xl font-semibold tracking-tight text-nb-ink dark:text-nb-ink-dark">{CERTS.KUBESTRONAUT.NAME}</h2>
+        <p class="meta-text mt-1">{CERTS.KUBESTRONAUT.ISSUER}</p>
+        <p class="mt-4 max-w-2xl text-nb-ink/80 dark:text-nb-ink-dark/80">{CERTS.KUBESTRONAUT.DESCRIPTION}</p>
+        <span class="text-link mt-5 inline-block text-sm">Verify on Credly <span aria-hidden="true">→</span></span>
+      </a>
+    </section>
+    <section class="animate space-y-6">
+      <h2 class="text-3xl font-semibold tracking-tight">Kubernetes certifications</h2>
+      <ul class="grid gap-4 sm:grid-cols-2">
+        {CERTS.ITEMS.map(cert => <li><a href={cert.HREF} target="_blank" rel="noopener noreferrer" class="credential-card flex h-full flex-col no-underline"><h3 class="font-semibold text-nb-ink dark:text-nb-ink-dark">{cert.NAME}</h3><p class="meta-text mt-2">{cert.ISSUER}</p><span class="text-link mt-5 text-sm">Verify credential →</span></a></li>)}
+      </ul>
+    </section>
+  </div></Container>
 </PageLayout>
