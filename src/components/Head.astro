@@ -81,7 +81,10 @@ const { title, description, image = "/og.svg", structuredData, type = "website",
 <meta property="og:image:alt" content={imageAlt} />
 {publishedTime && <meta property="article:published_time" content={publishedTime} />}
 
-<ClientRouter  />
+<!-- Article pages contain embedded frames and diagrams. Use full document
+     navigation in both directions to avoid WebKit's view-transition/frame
+     color-scheme crash during body replacement. -->
+{type !== "article" && <ClientRouter />}
 
 <!-- RSS Link -->
 <link rel="alternate" type="application/rss+xml" title={SITE.NAME} href={new URL("rss.xml", Astro.site)} />

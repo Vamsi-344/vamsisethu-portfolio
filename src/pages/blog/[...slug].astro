@@ -98,7 +98,7 @@ const shareLinkedIn = `https://www.linkedin.com/sharing/share-offsite/?url=${enc
 
       <div class="min-w-0">
         <header class="post-intro animate mb-10">
-          <p class="docs-kicker">Article {tags.length > 0 && <>· {tags.join(" / ")}</>}</p>
+          <p class="docs-kicker">Article {tags.length > 0 && <>· {tags.map((tag, index) => <><a class="docs-tag-link" href={`/blog/?tag=${encodeURIComponent(tag)}`}>{tag}</a>{index < tags.length - 1 && " / "}</>)}</>}</p>
           <h1 id="post-title">{post.data.title}</h1>
           <p class="post-summary">{post.data.description}</p>
           <div class="docs-meta"><span><FormattedDate date={post.data.date} /></span><span>{readingTime(post.body)}</span>{sectionCount > 0 && <span>{sectionCount} sections</span>}</div>
@@ -177,11 +177,17 @@ const shareLinkedIn = `https://www.linkedin.com/sharing/share-offsite/?url=${enc
     if (body.dataset.enhanced === "true") return;
     body.dataset.enhanced = "true";
 
-    // Tables: scroll wrapper so the hard shadow is not clipped on mobile.
-    body.querySelectorAll("table").forEach((table) => {
+    // Keep wide tables readable on mobile and keyboard-scrollable.
+    body.querySelectorAll("table").forEach((table, index) => {
       if (table.parentElement?.classList.contains("docs-table-wrap")) return;
       const wrap = document.createElement("div");
       wrap.className = "docs-table-wrap";
+      wrap.tabIndex = 0;
+      wrap.setAttribute("role", "region");
+      wrap.setAttribute("aria-label", table.caption?.textContent?.trim() || `Table ${index + 1} — scroll horizontally for more columns`);
+      table.querySelectorAll("thead th").forEach((header) => {
+        if (!header.hasAttribute("scope")) header.setAttribute("scope", "col");
+      });
       table.replaceWith(wrap);
       wrap.appendChild(table);
     });
@@ -276,4 +282,11 @@ const shareLinkedIn = `https://www.linkedin.com/sharing/share-offsite/?url=${enc
   };
 
   document.addEventListener("astro:page-load", initPost);
+  if (!document.querySelector("meta[name=astro-view-transitions-enabled]")) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initPost, { once: true });
+    } else {
+      initPost();
+    }
+  }
 </script>

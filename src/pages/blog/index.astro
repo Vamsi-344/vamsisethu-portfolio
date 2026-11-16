@@ -34,10 +34,22 @@ const allTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1] || a[0].loc
     const posts = Array.from(document.querySelectorAll<HTMLElement>("[data-post]"));
     const yearSections = Array.from(document.querySelectorAll<HTMLElement>("[data-year-section]"));
     const filters = Array.from(document.querySelectorAll<HTMLButtonElement>(".tag-filter"));
-    let activeTag = "";
+    const requestedTag = new URLSearchParams(window.location.search).get("tag")?.toLowerCase() ?? "";
+    let activeTag = filters.some(button => button.dataset.tag === requestedTag) ? requestedTag : "";
+    const updateFilters = () => filters.forEach(button => button.setAttribute("aria-pressed", String((button.dataset.tag ?? "") === activeTag)));
     const apply = () => { const query = searchInput.value.trim().toLowerCase(); let visibleCount = 0; posts.forEach(post => { const visible = Boolean((!query || post.dataset.search?.includes(query)) && (!activeTag || (post.dataset.tags ?? "").split("|").includes(activeTag))); post.hidden = !visible; if (visible) visibleCount += 1; }); yearSections.forEach(section => { section.hidden = section.querySelectorAll("[data-post]:not([hidden])").length === 0; }); emptyState?.classList.toggle("hidden", visibleCount !== 0); };
-    filters.forEach(button => button.addEventListener("click", () => { activeTag = button.dataset.tag ?? ""; filters.forEach(b => b.setAttribute("aria-pressed", String(b === button))); apply(); }));
+    filters.forEach(button => button.addEventListener("click", () => {
+      activeTag = button.dataset.tag ?? "";
+      const url = new URL(window.location.href);
+      if (activeTag) url.searchParams.set("tag", activeTag);
+      else url.searchParams.delete("tag");
+      window.history.replaceState(window.history.state, "", url);
+      updateFilters();
+      apply();
+    }));
     searchInput.addEventListener("input", apply);
+    updateFilters();
+    apply();
   };
   const win = window as Window & { blogSlashBound?: boolean };
   if (!win.blogSlashBound) { win.blogSlashBound = true; document.addEventListener("keydown", event => { const target = event.target as HTMLElement | null; if (event.key === "/" && target?.tagName !== "INPUT" && target?.tagName !== "TEXTAREA") { const input = document.querySelector<HTMLInputElement>("#post-search"); if (!input) return; event.preventDefault(); input.focus(); } }); }

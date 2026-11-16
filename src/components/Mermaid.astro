@@ -49,6 +49,11 @@ const { chart } = Astro.props;
   // diagram twice or stack observers/listeners across navigations — that double
   // rendering was the source of the flicker.
   (function () {
+    // Inline scripts are emitted once per diagram. Share a single renderer and
+    // theme observer so multiple instances cannot overwrite an in-flight render.
+    if (window.__portfolioMermaidInitialized) return;
+    window.__portfolioMermaidInitialized = true;
+
     const MERMAID_SRC = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
     let mermaidPromise = null;
     let themeObserver = null;
@@ -231,5 +236,13 @@ const { chart } = Astro.props;
 
     // Fires on first load and after every View-Transitions navigation.
     document.addEventListener("astro:page-load", init);
+    // Article pages deliberately use normal document navigation.
+    if (!document.querySelector("meta[name=astro-view-transitions-enabled]")) {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init, { once: true });
+      } else {
+        init();
+      }
+    }
   })();
 </script>

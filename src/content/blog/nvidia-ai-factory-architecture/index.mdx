@@ -1,0 +1,289 @@
+---
+title: "NVKE Uses Cluster API: Mapping the NVIDIA AI Factory Stack"
+description: "How NVKE, Cluster API, CAPNICo, and NICo fit together—and where GPU runtimes, AI scheduling, inference, and multi-site boundaries belong."
+date: "2026-11-16"
+tags:
+  - Kubernetes
+  - GPU
+  - NVIDIA
+  - Cluster API
+spaces:
+  - kubernetes
+  - observability
+---
+
+import Mermaid from '@components/Mermaid.astro';
+
+“Does NVKE use Cluster API?” turned out to be the question that made the rest of NVIDIA’s AI factory stack easier for me to understand.
+
+Arun Gupta’s [KubeCon field guide](https://www.linkedin.com/pulse/open-source-ai-factory-kubecon-field-guide-arun-gupta-5ufrc/) lists projects covering everything from bare-metal provisioning to sandboxed agents. A tempting interpretation is to draw one large management cluster and put every controller inside it.
+
+That would be the wrong abstraction. The projects manage different things: physical machines, Kubernetes clusters, GPU resources, application components, and agent sessions. Their control loops overlap, but their responsibilities are not interchangeable.
+
+The short answer is **yes: NVKE uses upstream Kubernetes, kubeadm, and Cluster API. CAPNICo is the Cluster API infrastructure provider that connects it to NICo.** The more useful question is what each layer owns—and what happens when it is unavailable.
+
+> **Scope and last verification: November 16, 2026.** This is a documentation-based architecture walkthrough, not a report of an NVKE deployment I tested. I reviewed NVIDIA’s unversioned NVKE documentation and the upstream Cluster API book. The broader project inventory reflects the supplied November 2026 field guide. NVKE is public preview, and NVIDIA explicitly does not recommend it for production workloads. Recheck release-specific documentation before implementation.
+
+## Four names, four responsibilities
+
+A cloud operator needs more than the Kubernetes API that runs its customers’ applications. It also needs a way to create those customers’ clusters in the first place.
+
+| Component | What it owns | What it does not replace |
+| --- | --- | --- |
+| **NVKE — NVIDIA Kubernetes Engine** | The managed-Kubernetes service layer: API, cluster lifecycle orchestration, node identity, and telemetry | Application-level GPU scheduling or the underlying hardware manager |
+| **CAPI — Kubernetes Cluster API** | Declarative APIs and controllers for Kubernetes cluster and machine lifecycle | A complete customer-facing cloud service |
+| **CAPNICo — Cluster API Provider for NICo** | The infrastructure-provider integration that calls NICo | NICo itself, or the whole NVKE management plane |
+| **NICo — NVIDIA Infra Controller** | Bare-metal lifecycle, including discovery, provisioning, and preparing machines for tenant reuse | Kubernetes application orchestration |
+
+[Cluster API](https://cluster-api.sigs.k8s.io/introduction) is a framework for managing clusters through Kubernetes resources and reconciliation. Providers implement infrastructure-specific behavior. Here, the relevant provider is CAPNICo.
+
+[NVIDIA’s overview](https://docs.nvidia.com/nvke/documentation/overview/what-is-nvke) and [NICo integration guide](https://docs.nvidia.com/nvke/documentation/install-nvke/configure-an-infrastructure-provider-ni-co) explicitly identify that relationship.
+
+<Mermaid chart={`flowchart TD
+  accTitle: NVKE, Cluster API, and NICo responsibility boundaries
+  accDescr: The operator calls NVKE. NVKE uses Cluster API and CAPNICo to request machines from NICo. NVKE also drives node agents using kubeadm to form workload clusters. Customers use the resulting Kubernetes API.
+  Operator["Operator or service automation"] --> NVKE["NVKE API and controllers"]
+  subgraph Management["Management cluster"]
+    NVKE --> CAPI["Cluster API and CAPNICo"]
+  end
+  CAPI --> NICo["NICo infrastructure API"]
+  NICo --> Hosts["Provisioned physical hosts"]
+  NVKE --> Agent["NVKE node agent and kubeadm"]
+  Hosts --> Agent
+  Agent --> Workload["Customer Kubernetes cluster"]
+  Customer["Customer using kubectl or Helm"] --> Workload
+`} />
+
+The diagram separates two responsibilities: **obtaining machines** and **forming Kubernetes clusters on them**. It is not an exhaustive call graph or a promise that every NVKE operation passes through one identical chain.
+
+NVKE is therefore neither “a different Kubernetes API for applications” nor simply “CAPI renamed.” It packages a broader service around cluster-management machinery. The resulting workload clusters use upstream Kubernetes and are documented as conformant.
+
+## Follow one cluster request end to end
+
+Suppose an operator wants to give a customer a dedicated GPU Kubernetes cluster. I would trace the request through these checkpoints:
+
+1. **Build and verify artifacts.** NVKR builds the node images and components NVKE deploys, from pinned sources. The operator controls artifact publication and verification.
+2. **Submit cluster intent.** The operator uses the NVKE API or CLI to request the cluster and its node pools.
+3. **Request infrastructure.** NVKE uses Cluster API and CAPNICo. CAPNICo authenticates to the NICo API using operator-supplied credentials.
+4. **Provision machines.** NICo provisions the selected hosts using the configured image and provisioning inputs.
+5. **Form the cluster.** The NVKE node agent runs kubeadm and installs cluster components; the management plane coordinates node identity and lifecycle.
+6. **Install the accelerated runtime.** The operator applies the appropriate GPU and networking runtime configuration. NVKE provisioning alone is not the entire AI software stack.
+7. **Test actual readiness.** NVCRE exercises real distributed communication and training workloads.
+8. **Hand over application access.** The customer uses the workload cluster’s Kubernetes API. NVKE continues managing cluster lifecycle, subject to preview limitations.
+
+<Mermaid chart={`sequenceDiagram
+  accTitle: A simplified GPU workload cluster provisioning sequence
+  accDescr: Operator artifacts and a cluster request lead to NICo host provisioning, NVKE node bootstrap, runtime setup, readiness tests, and customer access.
+  participant O as Operator
+  participant N as NVKE management plane
+  participant P as CAPI and CAPNICo
+  participant I as NICo
+  participant W as Workload nodes
+  O->>N: Register artifacts and request cluster
+  N->>P: Reconcile infrastructure resources
+  P->>I: Request machines
+  I->>W: Provision hosts from configured image
+  N->>W: Drive attestation and node bootstrap
+  Note over N,W: Node agents use kubeadm to form cluster
+  O->>W: Install accelerated runtime
+  O->>W: Run NVCRE readiness tests
+  Note over O,W: Customer receives access to the Kubernetes API
+`} />
+
+This is a conceptual sequence, not copy-paste deployment automation. Artifact hosting, networking, identity, storage, capacity allocation, and API security must already be planned.
+
+One useful diagnostic from the [provider guide](https://docs.nvidia.com/nvke/documentation/install-nvke/configure-an-infrastructure-provider-ni-co): a provider reporting `CONFIGURED` does **not** prove its credentials work. Likewise, an instance type without an allocation may appear healthy while machines wait with `InstanceTypeUnavailable`.
+
+A green controller deployment is evidence that a process is running—not proof that a customer cluster can be provisioned.
+
+## The management cluster is not the workload cluster
+
+The management cluster hosts NVKE’s API and controllers, Cluster API, CAPNICo, identity services, telemetry, and supporting state.
+
+The workload clusters host customer applications and the components needed to run them: GPU runtime operators, schedulers, inference controllers, and other services selected for that environment.
+
+NICo is an infrastructure service called by the management plane. Its presence in the architecture does not establish that NICo must run in that same management cluster. Its own deployment and recovery model need separate planning.
+
+Similarly, **DPF is not a universal factory controller**. DOCA Platform Framework manages BlueField DPUs and their services. Whether and where it is needed depends on the DPU architecture. I would not add it to every management cluster just because it appears in the same field guide.
+
+### Does three nodes mean high availability?
+
+[NVIDIA’s installation plan](https://docs.nvidia.com/nvke/documentation/install-nvke/plan-your-installation) describes an odd number of management nodes, such as one, three, or five. Each is a control-plane node that also runs management-plane components.
+
+Three etcd members can retain quorum after one member fails. That does not prove the entire managed service survives that failure.
+
+I would also ask:
+
+- Is the management API endpoint still reachable?
+- Are the database and its persistent storage available?
+- Can the remaining controllers reach NICo and the workload nodes?
+- Are identity services, artifact endpoints, and network dependencies available?
+- Is there an actually validated recovery process?
+
+Three nodes solve a particular quorum problem. They do not automatically solve service recovery.
+
+## What changes when there are multiple sites?
+
+My default design hypothesis for geographically separated sites is **local management and infrastructure control, with global coordination above them**.
+
+That is a recommendation about failure isolation, not a documented NVKE requirement that every site must have its own installation.
+
+The distinction matters because the NICo integration documentation says site identifiers belong to individual cluster requests; it does not establish one hard-coded site setting for the entire management plane. That detail alone is also not evidence of a fully supported, globally distributed NVKE service.
+
+<Mermaid chart={`flowchart TD
+  accTitle: A proposed site-local management architecture
+  accDescr: Optional global automation calls separate management planes in two sites. Each site manages local hardware and workload clusters. This is a design recommendation, not a required NVKE deployment model.
+  Global["Optional global portal and automation"]
+  subgraph A["Site A - local failure domain"]
+    MA["Local NVKE management cluster"] --> IA["Infrastructure via NICo"]
+    IA --> WA["Local workload clusters"]
+  end
+  subgraph B["Site B - local failure domain"]
+    MB["Local NVKE management cluster"] --> IB["Infrastructure via NICo"]
+    IB --> WB["Local workload clusters"]
+  end
+  Global -.-> MA
+  Global -.-> MB
+`} />
+
+The diagram represents ownership and management relationships, not application traffic routing. The optional global layer is not a specific NVKE product feature asserted here.
+
+I would not stretch a three-member etcd cluster across distant sites merely to call it multi-site HA. Quorum needs a majority, writes require agreement, and WAN latency and partitions become control-plane dependencies. Upstream’s [etcd hardware guidance](https://etcd.io/docs/v3.6/op-guide/hardware/) explains why network latency matters.
+
+Site-local control has costs: more installations, independent upgrades, credential management, and fleet configuration to keep consistent. A centralized management plane may be viable in some environments, but its supported topology, connectivity requirements, and failure behavior need evidence.
+
+Existing application pods can generally continue running through loss of a separate management plane if their local Kubernetes control plane and dependencies remain healthy. Provisioning, replacement, and other management-driven operations may be unavailable. I would test that boundary rather than describe it as unconditional site autonomy.
+
+## The rest of the factory, by responsibility
+
+The other projects become less confusing when grouped by the object they manage. This inventory summarizes the field guide; it is not an independently tested compatibility matrix.
+
+### Build, configure, and validate
+
+| Project | When I would use it | Boundary |
+| --- | --- | --- |
+| **NVKR — NVIDIA Kubernetes Recipes** | Build and verify version-pinned NVKE artifacts, with SBOMs and supply-chain evidence | Build-time trust and traceability; signatures are not a vulnerability-free guarantee |
+| **AICR — AI Cluster Runtime** | Select validated, version-locked GPU runtime combinations for a hardware/software target | A configuration recipe, not a health test of every deployed machine |
+| **GPU Operator** | Maintain drivers, runtime integration, device plugin, and discovery | GPU software lifecycle, not team scheduling policy |
+| **Network Operator** | Configure NIC drivers, RDMA, SR-IOV, and Multus | Network runtime setup, not workload placement |
+| **NVCRE — NVIDIA Cluster Readiness Engine** | Run NCCL and training jobs and isolate failing nodes | Deployment readiness evidence, not a promise against future faults |
+| **NodeWright** | Apply OS and kernel changes in place while honoring interruption budgets | Host maintenance, not cluster creation |
+| **DPF — DOCA Platform Framework** | Provision BlueField DPUs and manage their services | Relevant to DPU-based architectures, not mandatory for every GPU cluster |
+
+**AICR says “this combination has validation evidence.” NVCRE asks “does this actual deployment run the work?”**
+
+The article’s AICR example generates a recipe for an RKE2, Ubuntu, Vera Rubin training target. I have not run that command or reproduced its reference-cluster conformance and performance results, so I would not present those results as measurements of my environment.
+
+### Allocate, place, and govern GPU work
+
+| Project | When I would use it | Boundary |
+| --- | --- | --- |
+| **NVIDIA DRA driver** | Allocate GPUs through resource claims and support multi-node NVLink ComputeDomains | Implements GPU behavior for Kubernetes Dynamic Resource Allocation; not an entire scheduler |
+| **Topograph** | Publish physical network topology so schedulers can consider connectivity | Provides placement information rather than all placement policy |
+| **KAI Scheduler** | Gang scheduling, fair share, GPU sharing, and topology-aware placement | A scheduling engine, not the complete multi-cluster service |
+| **Run:ai** | Manage shared GPU work across teams and clusters, including quotas and workload lifecycle | Broader orchestration platform; uses KAI as its scheduler |
+| **Workload Map** | Share framework-specific workload descriptions through a common format and SDK | Describes workload structure; does not itself allocate or execute GPU work |
+
+Gang scheduling coordinates admission of a job’s workers rather than admitting a few workers that cannot make useful progress alone. Topology-aware placement tries to avoid putting communication-heavy workers on poorly connected machines.
+
+These solve different questions: **what can be allocated, where should it land, when can the group run, and whose quota pays for it?** None is a replacement for the others.
+
+### Run inference and agents
+
+| Project | When I would use it | Boundary |
+| --- | --- | --- |
+| **Dynamo** | Serve models across GPUs and nodes using distributed inference | Serving execution, not physical infrastructure management |
+| **Grove** | Coordinate multi-node inference components, placement groups, and startup order through one custom resource | Deployment coordination, not the model computation itself |
+| **NIM Operator** | Deploy and maintain NIM and NeMo microservices, including caching and scaling | A service lifecycle path, not a mandatory stage after Dynamo and Grove |
+| **Snapshot** | Restore supported GPU workloads instead of repeating expensive cold initialization | Does not remove host provisioning or image-pull time |
+| **[Agent Substrate](https://github.com/agent-substrate/substrate)** | Multiplex stateful agent sessions over a worker pool and checkpoint idle sessions | An adjacent agent-runtime project, not a DSX OS component; isolation depends on the configured runtime |
+| **[OpenShell](https://github.com/NVIDIA/OpenShell)** | Apply runtime policies to agent filesystem access, system calls, and network connections | Agent governance, not GPU scheduling; the field guide describes ongoing Agent Substrate integration work |
+
+For inference, I separate the serving engine from orchestration: Dynamo performs distributed serving; Grove coordinates cooperating deployment components. Whether a particular service needs both depends on its architecture and supported integrations.
+
+For agents, I separate resource efficiency from authority: Agent Substrate addresses execution sessions and idle capacity; OpenShell addresses permitted actions. Agent Substrate session checkpointing should not be conflated with Snapshot’s GPU workload restoration.
+
+The linked project repositories document those mechanisms; they are not blanket security guarantees. OpenShell’s enforcement applies at its configured sandbox boundaries, and its Kubernetes deployment requires a CNI that enforces NetworkPolicy. Runtime selection, policy configuration, and supported integrations still need validation.
+
+### Observe, protect, and evaluate
+
+| Project or reference | When I would use it | Boundary |
+| --- | --- | --- |
+| **DCGM Exporter** | Export GPU hardware metrics for Prometheus-compatible monitoring | A metrics source, not the entire observability platform |
+| **NKTP** | Collect metrics, logs, and traces with OpenTelemetry and export to an existing backend | A pipeline, not necessarily the storage and dashboard backend; usable without NVKE |
+| **NVSentinel** | Detect GPU faults and automate protection and remediation | Fault handling, not just a dashboard or a readiness test |
+| **DGXC Requirements Guide v2.4** | Evaluate the capabilities expected of a production AI cloud | A requirements reference, not a runtime controller |
+
+I would not draw DCGM Exporter, NKTP, and NVSentinel as one guaranteed serial event pipeline. They have related operational purposes, but telemetry export and automated remediation are different control paths.
+
+## Two workload paths through the system
+
+The simplest useful training path is:
+
+```text
+validated cluster
+  → workload submission and team policy
+  → coordinated admission, topology-aware placement, resource allocation
+  → distributed training
+  → observation and fault response
+```
+
+Run:ai, KAI, Topograph, DRA, and Workload Map can contribute to different parts of that path. The exact integration must be checked for the chosen framework and versions.
+
+A representative inference path is:
+
+```text
+validated runtime
+  → distributed serving definition
+  → coordinated component deployment
+  → placement and resource allocation
+  → warm restoration where supported
+  → serve and measure
+```
+
+The field guide reports Snapshot restoring DeepSeek-V4.1-Flash on eight B200s in about 31 seconds instead of 18.5 minutes, excluding provisioning and image pulls. That is a reported example, not my benchmark. Without the full test method, repetitions, and compatibility details, I would not extrapolate it into a general service startup SLA.
+
+## The preview limitations change the design
+
+The [known-limitations page](https://docs.nvidia.com/nvke/documentation/overview/preview-status-and-known-limitations) is more important to an implementation decision than the project list.
+
+At the time of this review, it documents:
+
+- **No management-cluster self-management:** it does not upgrade, scale, or replace its own nodes.
+- **No provided management-plane upgrade procedure**, and no provided backup/restore procedure for its state.
+- **An NVKE API initially served over plain HTTP with authentication off.** Configure access restrictions, authentication, and an appropriate TLS endpoint before exposure. Sending bearer tokens over plain HTTP does not protect them.
+- **No NVKE API authorization:** admitted callers can access every endpoint. Authentication is not per-customer privilege isolation.
+- **Customer access through an admin kubeconfig**, with important credential-revocation limitations.
+- **Node-pool configuration changes do not automatically replace existing nodes.** Do not assume a patch means the fleet has converged to the new software.
+- **Evaluation-only defaults in some areas**, including the default telemetry backend. The documented FDE image variant also must not be relied on for data-at-rest confidentiality; read the limitations before evaluating it.
+
+These are public product limitations, not observations from a private environment. They are also why I would not describe a three-node preview installation as a production-ready GPU cloud.
+
+## What I would test before adopting it
+
+My next step would be a controlled evaluation, not an immediate production rollout:
+
+1. Pin the NVKE, NVKR, CAPNICo, Kubernetes, and runtime releases and record their compatibility evidence.
+2. Build and verify artifacts, then prove that the image and provisioning path work on the target hardware.
+3. Create a workload cluster and run actual readiness jobs—not just controller health checks.
+4. Test management-node failure and separately test database, storage, NICo, and API dependency failures.
+5. Verify management API transport security, credential rotation, and which identities can perform destructive operations.
+6. Change a node-pool configuration and observe which nodes actually adopt it.
+7. Validate recovery procedures before trusting any state that cannot be reconstructed safely.
+8. For multiple sites, interrupt inter-site connectivity and measure which local operations continue and which stall.
+
+The lesson I took from this exercise is not “install all of NVIDIA’s controllers.” It is **identify the resource and failure boundary each controller owns**.
+
+NICo prepares machines. CAPNICo exposes infrastructure behavior to Cluster API. NVKE operates Kubernetes clusters. The GPU runtime makes accelerators usable. Scheduling and workload controllers turn that capacity into training, inference, and agent execution.
+
+That separation makes the platform easier to reason about—and makes it harder to confuse an available machine with useful AI work completed.
+
+## References
+
+- [Arun Gupta: The Open Source AI Factory — A KubeCon Field Guide](https://www.linkedin.com/pulse/open-source-ai-factory-kubecon-field-guide-arun-gupta-5ufrc/) — source of the wider project inventory; article text supplied for this walkthrough.
+- [NVIDIA: What is NVKE](https://docs.nvidia.com/nvke/documentation/overview/what-is-nvke) — ownership, architecture, and component boundaries.
+- [NVIDIA: Plan your installation](https://docs.nvidia.com/nvke/documentation/install-nvke/plan-your-installation) — management nodes, dependencies, networking, and fixed settings.
+- [NVIDIA: Configure an infrastructure provider — NICo](https://docs.nvidia.com/nvke/documentation/install-nvke/configure-an-infrastructure-provider-ni-co) — CAPNICo, credentials, and per-cluster infrastructure identifiers.
+- [NVIDIA: Preview status and known limitations](https://docs.nvidia.com/nvke/documentation/overview/preview-status-and-known-limitations) — lifecycle, security, recovery, and operational caveats.
+- [The Cluster API Book: Introduction](https://cluster-api.sigs.k8s.io/introduction) — upstream cluster-lifecycle framework and provider model.
+- [etcd: Hardware recommendations](https://etcd.io/docs/v3.6/op-guide/hardware/) — network and storage considerations for quorum-based operation.
