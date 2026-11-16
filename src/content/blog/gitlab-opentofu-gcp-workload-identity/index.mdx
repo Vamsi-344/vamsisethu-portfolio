@@ -1,0 +1,233 @@
+---
+title: "Setting Up GitLab and OpenTofu for Keyless Google Cloud Access"
+description: "Building a private GitLab infrastructure repository with OpenTofu and Google Workload Identity Federation—and separating CI validation from authentication proof."
+date: "Oct 21 2026"
+tags:
+  - OpenTofu
+  - GitLab
+  - Google Cloud
+  - Workload Identity
+spaces:
+  - gitops
+  - aws-cloud
+  - security
+---
+
+import Mermaid from '@components/Mermaid.astro';
+
+I wanted to build a Kubernetes lab on Google Cloud, but I did not get as far as creating clusters. The available credits ran out while other work took priority.
+
+The useful work happened before that: setting up a private GitLab repository, choosing OpenTofu, configuring the state backend, and wiring GitLab-issued identity tokens into Google Workload Identity Federation. I wanted the eventual infrastructure pipeline to use short-lived credentials rather than a service-account JSON key stored in CI.
+
+That foundation is worth documenting on its own. It also taught me to distinguish a green validation job from evidence that cloud authentication actually works.
+
+> **Scope and evidence reviewed: November 16, 2026.** This article describes the repository and CI setup, not a deployed Kubernetes platform. I reviewed the committed configuration and October 21 pipeline logs through the GitLab CLI. The latest successful job used GitLab's OpenTofu component **4.9.0**, OpenTofu **1.12.6**, and Google provider **6.50.0**. Those logs establish configuration validation; they do not establish a successful Google token exchange or API call. Private identifiers are replaced with placeholders throughout.
+
+## Start with the repository, not the cluster
+
+The repository separates infrastructure from the platform work that would come later:
+
+```text
+<lab-repository>/
+├── infra/environments/lab/  # OpenTofu root module
+├── platform/               # Reserved for Kubernetes platform configuration
+├── apps/                   # Reserved for workload examples
+├── docs/                   # Notes and design decisions
+├── .gitlab/ci/              # CI authentication setup
+└── .gitlab-ci.yml           # Validation pipeline
+```
+
+The important boundary is ownership: OpenTofu would manage Google Cloud infrastructure, while a future GitOps controller would manage selected Kubernetes resources. I did not need either a running cluster or a fleet manager to establish that distinction.
+
+I kept the project private. OpenTofu state and saved plans can contain sensitive values, and making the source public should be a separate disclosure decision—not a side effect of wanting to share a useful example. A private repository is not, by itself, sufficient protection for every state file or artifact; access, storage, and retention still matter.
+
+## Pin the tools and make validation repeatable
+
+I used GitLab's OpenTofu CI/CD component rather than maintaining my own runner image. The relevant portion of the committed configuration was:
+
+```yaml
+include:
+  - component: gitlab.com/components/opentofu/validate@4.9.0
+    inputs:
+      root_dir: infra/environments/lab
+      state_name: lab
+      opentofu_version: 1.12.6
+      lockfile: readonly
+      enable_id_tokens: true
+```
+
+This is an excerpt, not the complete pipeline. The OIDC declaration and setup hook appear later in this article.
+
+The Google provider constraint was `~> 6.0`; the lock file selected **6.50.0**, which the successful job reused. After generating and committing `.terraform.lock.hcl`, I enabled read-only lock-file handling so routine validation would not quietly update provider selections.
+
+Those are different controls:
+
+- **The component version** pins the CI integration used by the job.
+- **The OpenTofu version** pins the CLI inside that job.
+- **The provider lock file** records the selected provider version and package checksums.
+
+I would review an intentional upgrade as its own change rather than mix it into unrelated infrastructure work.
+
+## Configure GitLab-managed state without claiming it was tested
+
+The root module declares an HTTP backend:
+
+```hcl
+terraform {
+  backend "http" {}
+}
+```
+
+GitLab's component accepts the state name and supplies backend configuration for jobs that use the backend. The intended state location was GitLab-managed state named `lab`, not a file committed to Git.
+
+However, **declaring a backend is not the same as exercising it**. The validation log I reviewed showed provider initialization and configuration validation, not a demonstrated remote-state read or lock/unlock cycle. I would not use that log as evidence that the state recovery or locking path had been tested.
+
+GitLab's [state documentation](https://docs.gitlab.com/user/infrastructure/iac/terraform_state/) describes the HTTP backend and locking model. Before relying on it for infrastructure changes, I would separately verify access controls, locking behavior, and how to recover the state if the usual CI path were unavailable.
+
+## Wire GitLab identity into Google Cloud
+
+The identity setup is the core of this article. The intended authentication path avoids storing a Google service-account private key in GitLab:
+
+<Mermaid chart={`flowchart TD
+  accTitle: Configured GitLab to Google Cloud federation path
+  accDescr: GitLab issues a job identity token. An external-account credential configuration directs Google authentication libraries to exchange it through Workload Identity Federation and impersonate a service account before accessing Google APIs. This diagram describes the configured path, not a verified token exchange.
+  Job["GitLab CI job"] --> Token["GitLab OIDC ID token"]
+  Token --> Config["External-account credential configuration"]
+  Config --> STS["Google Security Token Service and WIF provider"]
+  STS --> SA["Service-account impersonation"]
+  SA --> API["Google APIs allowed by IAM"]
+`} />
+
+There are two distinct authorization questions:
+
+1. **Which external identity may impersonate the service account?** The workload identity provider, claim condition, and service-account IAM binding define this boundary.
+2. **What may that service account do?** Its Google Cloud resource roles define the permissions available after impersonation.
+
+Keyless authentication removes the need for a stored service-account key. It does not make an overly privileged service account safe, and the job's short-lived token is still sensitive.
+
+### Map claims and restrict the accepted identity
+
+The repository maps these GitLab token claims:
+
+```hcl
+attribute_mapping = {
+  "google.subject"       = "assertion.sub"
+  "attribute.project_id" = "assertion.project_id"
+  "attribute.ref"        = "assertion.ref"
+}
+```
+
+The configured provider condition checks the GitLab project ID and the ref name. This is the identifier-redacted expression from the repository, not a complete provider resource:
+
+```hcl
+attribute_condition = "assertion.project_id == \"<gitlab-project-id>\" && assertion.ref == \"main\""
+```
+
+The service-account binding grants `roles/iam.workloadIdentityUser` to a principal set selected by that mapped project ID. The numeric project ID matters here; it is not the repository's display name.
+
+There is an important limit in that condition: **matching `ref == "main"` does not itself check whether the ref is a branch or whether it is protected**. The expression does not inspect `ref_type` or `ref_protected`. I would explicitly review those claims and test rejected identities before allowing infrastructure-changing jobs. Branch protection in GitLab and the Google provider's token condition are related controls, not interchangeable ones.
+
+The initial configuration also assigns roles for networking, GKE, service-account administration and use, and service enablement. These were intended for the next lab stage; I would not present that role set as a least-privilege recommendation for a validation-only job. The permissions need a separate review before enabling changes.
+
+### Request the job token
+
+The OpenTofu component was configured with `enable_id_tokens: true`. The repository also overrides its token declaration. This excerpt uses placeholders and must be adapted before use:
+
+```yaml
+.gitlab-tofu:id_tokens:
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: "//iam.googleapis.com/projects/<gcp-project-number>/locations/global/workloadIdentityPools/<pool-id>/providers/<provider-id>"
+```
+
+That audience is deliberately tied to the intended Google provider. It must agree with the provider's accepted audience configuration; a token existing in the job is not evidence that Google will accept it.
+
+The Google project **number** in the provider resource name is not the Google project ID, and neither is the GitLab project ID. Keeping those three identifiers distinct makes federation configuration much easier to review.
+
+## Turn the token into a credential configuration
+
+The setup script lives at `.gitlab/ci/setup-id-tokens.sh`. It checks for the expected environment variables, writes the job token to a file, creates an external-account credential configuration, and exports `GOOGLE_APPLICATION_CREDENTIALS`.
+
+The credential configuration has this shape. It is a shortened, placeholder-based example, not a runnable file:
+
+```json
+{
+  "type": "external_account",
+  "audience": "//iam.googleapis.com/projects/<gcp-project-number>/locations/global/workloadIdentityPools/<pool-id>/providers/<provider-id>",
+  "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+  "token_url": "https://sts.googleapis.com/v1/token",
+  "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/<service-account-email>:generateAccessToken",
+  "credential_source": {
+    "file": "<absolute-path-to-job-token-file>",
+    "format": { "type": "text" }
+  }
+}
+```
+
+The setup hook is **sourced**, rather than executed as a separate child process. That matters because the exported environment variables must remain available to the OpenTofu command that follows.
+
+Writing this JSON does not perform the exchange. It tells Google's authentication libraries where to find the token and how to obtain credentials when they are needed. The file contains no service-account private key, but the referenced token file contains an active job credential.
+
+Before extending this into a provisioning pipeline, I would tighten token-file permissions, add cleanup, and ensure neither the token file nor the credential configuration is included in caches or artifacts. Those are follow-up controls, not checks established by the successful validation job.
+
+## What the successful job actually proved
+
+I checked the GitLab pipeline history rather than relying on the draft's description of it. The latest successful job was a `validate` job on `main`, run on October 21, 2026.
+
+Its relevant log lines were:
+
+```text
+$ test -f ".gitlab/ci/setup-id-tokens.sh" && . .gitlab/ci/setup-id-tokens.sh
+$ gitlab-tofu validate
+- Reusing previous version of hashicorp/google from the dependency lock file
+- Using previously-installed hashicorp/google v6.50.0
+OpenTofu has been successfully initialized!
+Success! The configuration is valid.
+```
+
+This is a shortened excerpt with timestamps and runner details removed. The setup command ran without failing the job, the pinned provider was available, and OpenTofu accepted the configuration.
+
+That is useful evidence, but it has a specific boundary:
+
+| Check | Evidence from this review |
+| --- | --- |
+| Committed WIF resources, CI token declaration, and setup hook | Present in the repository |
+| Setup command and OpenTofu validation | Successful job log |
+| Google STS exchange and service-account impersonation | Not established by the reviewed job |
+| Authorized Google API request from CI | Not established by the reviewed job |
+| GitLab remote-state access and locking | Not established by the reviewed job |
+| Kubernetes cluster creation | Not performed |
+
+The [OpenTofu documentation](https://opentofu.org/docs/cli/commands/validate/) is explicit: `tofu validate` checks configuration consistency without accessing remote services such as provider APIs or remote state. Provider initialization is not the same as provider authentication.
+
+My original notes treated the green pipeline as broader proof. Reviewing the log made the article more precise: **the federation path was configured, and the configuration passed CI validation; the reviewed evidence did not demonstrate an end-to-end cloud request**.
+
+## Where I stopped—and what I would verify next
+
+No Kubernetes clusters were created. I stopped before that stage because the available credits had run out while I was busy with other work. I do not need to turn an unfinished cluster lab into a completed deployment story to explain the setup that did happen.
+
+If I resume the project, the next milestone is a small, explicit authentication test—not immediately creating compute resources:
+
+1. Prove that a CI job can exchange its GitLab token and impersonate the intended service account, without printing credentials.
+2. Make a narrowly scoped, read-only Google API request and record its result separately from configuration validation.
+3. Test rejection of identities outside the intended project and ref policy, including the branch-versus-tag distinction.
+4. Review the service account's roles and remove permissions that the next job does not need.
+5. Verify backend access, locking, and recovery before enabling infrastructure-changing jobs.
+
+I would also recheck billing and budgets before any resource creation. Budget alerts are not an automatic spending cap, and successful authentication is not permission to skip cost planning.
+
+## The useful outcome was a foundation
+
+The completed milestone was a private infrastructure repository with pinned validation tooling and the configuration for keyless CI authentication. It was not a running Kubernetes platform, and the validation result was not an authentication smoke test.
+
+That is still a useful place to stop. Repository ownership, state handling, identity boundaries, and evidence are platform work—even before the first cluster exists.
+
+The lesson I would carry into the next stage is simple: **make every success claim match the operation that actually ran**.
+
+## References
+
+- [GitLab OpenTofu component, release 4.9.0](https://gitlab.com/components/opentofu/-/tree/4.9.0) — the pinned CI integration used by this setup.
+- [OpenTofu: validate](https://opentofu.org/docs/cli/commands/validate/) — the scope and limitations of configuration validation.
+- [GitLab-managed Terraform/OpenTofu state](https://docs.gitlab.com/user/infrastructure/iac/terraform_state/) — HTTP backend configuration, access, and locking.
+- [Google Cloud: Workload Identity Federation with deployment pipelines](https://cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines) — provider configuration, claim restrictions, and service-account access.
+- [GitLab: Configure OpenID Connect with GCP Workload Identity Federation](https://docs.gitlab.com/ci/cloud_services/google_cloud/) — job identity tokens and the Google federation flow.
